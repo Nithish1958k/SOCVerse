@@ -1,0 +1,49 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: socverse-mongo
+    restart: unless-stopped
+    volumes:
+      - socverse-data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: socverse-api
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      MONGO_URI: mongodb://mongo:27017/socverse
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:4200}
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_production}
+      JWT_EXPIRES_IN: 8h
+      ALERT_ENGINE_ENABLED: "true"
+      ALERT_ENGINE_INTERVAL_MS: "3500"
+    ports:
+      - "4000:4000"
+
+  # One-shot seeder. Run explicitly with:
+  #   docker compose run --rm seed
+  seed:
+    build: .
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URI: mongodb://mongo:27017/socverse
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_production}
+    command: ["node", "src/utils/seed.js"]
+    profiles: ["tools"]
+
+volumes:
+  socverse-data:

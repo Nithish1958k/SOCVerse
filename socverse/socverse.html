@@ -1,0 +1,1978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOCVerse — Security Operations Center Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Chivo:wght@600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --bg:#070b14; --bg2:#0b1120; --panel:#0e1626; --panel2:#121d31; --line:#1d2c44;
+  --line2:#27395a; --txt:#cfe0f5; --txt-dim:#7f93b3; --txt-faint:#536184;
+  --cyan:#22d3ee; --cyan-dim:#0e7490; --green:#34e0a1; --amber:#f5b544;
+  --crit:#ff4d6d; --high:#ff8a3d; --med:#f5b544; --low:#3da8ff; --info:#5b6b8c;
+  --glow-crit:rgba(255,77,109,.45); --glow-cyan:rgba(34,211,238,.35);
+  --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',sans-serif; --disp:'Chivo',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--txt); font-family:var(--sans);
+  font-size:14px; overflow:hidden;
+  background-image:
+    radial-gradient(1200px 600px at 80% -10%, rgba(34,211,238,.06), transparent),
+    radial-gradient(900px 500px at -10% 110%, rgba(52,224,161,.05), transparent),
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,.012) 3px, transparent 4px);
+}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--line2);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:var(--cyan-dim)}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit}
+
+/* ============ LOGIN ============ */
+#login{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(1000px 700px at 50% 30%, rgba(34,211,238,.08), transparent), var(--bg)}
+.login-card{width:420px;max-width:92vw;background:linear-gradient(180deg,var(--panel),var(--bg2));
+  border:1px solid var(--line2);border-radius:14px;padding:38px 34px;
+  box-shadow:0 30px 80px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.04)}
+.login-logo{font-family:var(--disp);font-weight:900;font-size:34px;letter-spacing:-1px;
+  background:linear-gradient(90deg,#fff,var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+.login-logo span{color:var(--green);-webkit-text-fill-color:var(--green)}
+.login-sub{color:var(--txt-dim);font-family:var(--mono);font-size:12px;margin:6px 0 26px;letter-spacing:.5px}
+.fld{margin-bottom:16px}
+.fld label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--txt-faint);margin-bottom:7px;font-weight:600}
+.fld input{width:100%;background:var(--bg);border:1px solid var(--line2);color:var(--txt);
+  padding:11px 13px;border-radius:8px;font-size:14px;outline:none;transition:.15s}
+.fld input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px var(--glow-cyan)}
+.role-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.role-opt{background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:11px 10px;text-align:center;
+  transition:.15s;color:var(--txt-dim)}
+.role-opt:hover{border-color:var(--line2);color:var(--txt)}
+.role-opt.sel{border-color:var(--cyan);background:rgba(34,211,238,.08);color:var(--cyan);box-shadow:0 0 0 1px var(--cyan) inset}
+.role-opt b{display:block;font-size:14px;font-weight:700}
+.role-opt small{font-size:10px;color:var(--txt-faint)}
+.btn-login{width:100%;margin-top:24px;background:linear-gradient(90deg,var(--cyan),var(--green));color:#03121a;
+  border:none;padding:13px;border-radius:8px;font-weight:700;font-size:14px;letter-spacing:.5px;transition:.15s}
+.btn-login:hover{filter:brightness(1.1);box-shadow:0 8px 24px var(--glow-cyan)}
+
+/* ============ APP SHELL ============ */
+#app{display:none;height:100vh;grid-template-columns:226px 1fr;grid-template-rows:54px 1fr}
+.topbar{grid-column:1/3;display:flex;align-items:center;gap:18px;padding:0 18px;
+  background:linear-gradient(180deg,var(--panel),var(--bg2));border-bottom:1px solid var(--line2);z-index:30}
+.brand{font-family:var(--disp);font-weight:900;font-size:19px;letter-spacing:-.5px;color:#fff}
+.brand span{color:var(--green)}
+.brand .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);
+  margin-right:9px;box-shadow:0 0 10px var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.top-stats{display:flex;gap:8px;margin-left:6px}
+.tstat{display:flex;align-items:center;gap:7px;background:var(--bg);border:1px solid var(--line);
+  padding:5px 11px;border-radius:7px;font-family:var(--mono);font-size:12px}
+.tstat b{font-weight:600}
+.tstat .lbl{color:var(--txt-faint);font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+.clock{font-family:var(--mono);font-size:13px;color:var(--cyan)}
+.user-chip{display:flex;align-items:center;gap:9px;background:var(--bg);border:1px solid var(--line2);
+  padding:5px 6px 5px 12px;border-radius:30px}
+.user-chip .ava{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--green));
+  display:flex;align-items:center;justify-content:center;color:#03121a;font-weight:700;font-size:12px}
+.user-chip .meta{line-height:1.2}
+.user-chip .meta b{font-size:12px}
+.user-chip .meta small{font-size:10px;color:var(--txt-faint);font-family:var(--mono)}
+.logout{background:none;border:1px solid var(--line2);color:var(--txt-dim);padding:6px 11px;border-radius:6px;font-size:12px}
+.logout:hover{border-color:var(--crit);color:var(--crit)}
+
+/* sidebar */
+.sidebar{background:var(--bg2);border-right:1px solid var(--line);padding:14px 10px;overflow-y:auto;display:flex;flex-direction:column}
+.nav-group{margin-bottom:16px}
+.nav-group h6{font-size:9.5px;text-transform:uppercase;letter-spacing:1.2px;color:var(--txt-faint);
+  padding:0 10px;margin-bottom:7px;font-weight:700}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;color:var(--txt-dim);
+  font-size:13px;font-weight:500;cursor:pointer;transition:.12s;position:relative}
+.nav-item:hover{background:var(--panel);color:var(--txt)}
+.nav-item.active{background:rgba(34,211,238,.1);color:var(--cyan)}
+.nav-item.active::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:3px;border-radius:3px;background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+.nav-item .ic{width:17px;text-align:center;flex-shrink:0;font-size:14px}
+.nav-item .badge{margin-left:auto;background:var(--crit);color:#fff;font-size:10px;font-weight:700;
+  min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 5px;box-shadow:0 0 10px var(--glow-crit)}
+.nav-foot{margin-top:auto;padding:10px;font-family:var(--mono);font-size:10px;color:var(--txt-faint);line-height:1.6}
+
+/* main */
+.main{overflow-y:auto;padding:20px 24px 60px;position:relative}
+.view-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px}
+.view-head h1{font-family:var(--disp);font-weight:800;font-size:25px;letter-spacing:-.5px;color:#fff}
+.view-head .sub{color:var(--txt-dim);font-size:13px;margin-top:3px}
+.view-head .crumb{font-family:var(--mono);font-size:11px;color:var(--cyan);letter-spacing:.5px;text-transform:uppercase}
+
+/* cards & grids */
+.grid{display:grid;gap:14px}
+.kpi-row{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.card{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:11px;padding:16px}
+.card.glow{border-color:var(--line2);box-shadow:0 0 0 1px rgba(34,211,238,.05),0 14px 40px rgba(0,0,0,.3)}
+.card h3{font-size:13px;font-weight:700;color:#fff;margin-bottom:2px;display:flex;align-items:center;gap:8px}
+.card .ch-sub{font-size:11px;color:var(--txt-faint);margin-bottom:14px}
+.kpi{position:relative;overflow:hidden}
+.kpi .lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--txt-faint);font-weight:600}
+.kpi .val{font-family:var(--disp);font-weight:800;font-size:32px;margin-top:6px;line-height:1}
+.kpi .delta{font-family:var(--mono);font-size:11px;margin-top:7px}
+.kpi .spark{position:absolute;right:14px;top:14px;font-size:22px;opacity:.25}
+.up{color:var(--green)}.down{color:var(--crit)}
+
+/* tables */
+.tbl-wrap{overflow:auto;border:1px solid var(--line);border-radius:11px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead th{background:var(--bg2);text-align:left;padding:10px 12px;font-size:10px;text-transform:uppercase;
+  letter-spacing:.8px;color:var(--txt-faint);font-weight:700;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2}
+tbody td{padding:9px 12px;border-bottom:1px solid var(--line);color:var(--txt-dim);vertical-align:middle}
+tbody tr{transition:.1s;cursor:pointer}
+tbody tr:hover{background:var(--panel2)}
+tbody tr.sel{background:rgba(34,211,238,.07)}
+.mono{font-family:var(--mono)}
+.t-id{font-family:var(--mono);color:var(--cyan);font-size:11px}
+
+/* severity & status pills */
+.pill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:20px;font-size:10.5px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.4px;font-family:var(--mono);white-space:nowrap}
+.pill::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+.sev-Critical{color:var(--crit);background:rgba(255,77,109,.13)}
+.sev-High{color:var(--high);background:rgba(255,138,61,.13)}
+.sev-Medium{color:var(--med);background:rgba(245,181,68,.13)}
+.sev-Low{color:var(--low);background:rgba(61,168,255,.13)}
+.st-New{color:#8ea2c4;background:rgba(142,162,196,.12)}
+.st-Acknowledged{color:var(--cyan);background:rgba(34,211,238,.12)}
+.st-InProgress{color:var(--amber);background:rgba(245,181,68,.12)}
+.st-Escalated{color:var(--high);background:rgba(255,138,61,.12)}
+.st-Contained{color:var(--green);background:rgba(52,224,161,.12)}
+.st-Closed{color:var(--green);background:rgba(52,224,161,.12)}
+.st-FalsePositive{color:var(--txt-faint);background:rgba(83,97,132,.15)}
+
+.tag{display:inline-block;padding:2px 8px;border-radius:5px;font-size:11px;font-family:var(--mono);
+  background:var(--bg);border:1px solid var(--line2);color:var(--txt-dim);margin:2px}
+.tag.mitre{color:var(--cyan);border-color:var(--cyan-dim)}
+.tag.ioc{color:var(--amber);border-color:rgba(245,181,68,.3)}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:7px;font-size:12.5px;font-weight:600;
+  border:1px solid var(--line2);background:var(--panel);color:var(--txt);transition:.13s}
+.btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.btn.primary{background:linear-gradient(90deg,var(--cyan),var(--green));color:#03121a;border:none}
+.btn.primary:hover{filter:brightness(1.08);box-shadow:0 6px 18px var(--glow-cyan)}
+.btn.danger{border-color:rgba(255,77,109,.4);color:var(--crit)}
+.btn.danger:hover{background:rgba(255,77,109,.12)}
+.btn.warn{border-color:rgba(255,138,61,.4);color:var(--high)}
+.btn.warn:hover{background:rgba(255,138,61,.12)}
+.btn.sm{padding:5px 10px;font-size:11.5px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+
+/* filters */
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+.sel-in,.txt-in{background:var(--bg);border:1px solid var(--line2);color:var(--txt);padding:7px 11px;border-radius:7px;font-size:12.5px;outline:none}
+.txt-in:focus,.sel-in:focus{border-color:var(--cyan)}
+.txt-in{min-width:220px}
+
+/* live feed */
+.feed{height:340px;overflow-y:auto;font-family:var(--mono);font-size:12px}
+.feed-row{display:flex;gap:10px;padding:7px 4px;border-bottom:1px solid var(--line);align-items:baseline;animation:slidein .35s ease}
+@keyframes slidein{from{opacity:0;transform:translateX(-8px)}to{opacity:1}}
+.feed-row .ts{color:var(--txt-faint);flex-shrink:0}
+.feed-row .src{color:var(--cyan);flex-shrink:0;min-width:72px}
+.feed-row .msg{color:var(--txt-dim);flex:1}
+.feed-row .sv{flex-shrink:0}
+
+/* two-col workspace */
+.split{display:grid;grid-template-columns:1fr 380px;gap:14px;align-items:start}
+.split.wide{grid-template-columns:1fr 440px}
+.detail-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;color:var(--txt-faint);text-align:center;gap:10px}
+.detail-empty .big{font-size:40px;opacity:.3}
+
+/* timeline */
+.tl{position:relative;padding-left:24px}
+.tl::before{content:'';position:absolute;left:7px;top:4px;bottom:4px;width:2px;background:var(--line2)}
+.tl-item{position:relative;padding-bottom:16px}
+.tl-item::before{content:'';position:absolute;left:-21px;top:3px;width:11px;height:11px;border-radius:50%;
+  background:var(--bg);border:2px solid var(--cyan);box-shadow:0 0 8px var(--glow-cyan)}
+.tl-item .tl-time{font-family:var(--mono);font-size:11px;color:var(--cyan)}
+.tl-item .tl-txt{font-size:12.5px;color:var(--txt);margin-top:2px}
+.tl-item .tl-meta{font-size:11px;color:var(--txt-faint);margin-top:2px}
+
+/* MITRE matrix */
+.mitre-grid{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(132px,1fr);gap:6px;overflow-x:auto;padding-bottom:8px}
+.mitre-col{min-width:132px}
+.mitre-col .tac{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--cyan);
+  padding:8px;background:var(--bg2);border:1px solid var(--line2);border-radius:7px 7px 0 0;text-align:center;min-height:46px;display:flex;align-items:center;justify-content:center}
+.mitre-tech{font-size:11px;padding:7px 8px;border:1px solid var(--line);border-top:none;background:var(--panel);
+  color:var(--txt-dim);transition:.12s;cursor:default}
+.mitre-tech:last-child{border-radius:0 0 7px 7px}
+.mitre-tech .tid{font-family:var(--mono);font-size:9.5px;color:var(--txt-faint);display:block}
+.mitre-tech.hot{background:rgba(255,77,109,.14);color:var(--crit);border-color:rgba(255,77,109,.3)}
+.mitre-tech.hot .tid{color:var(--crit)}
+.mitre-tech.warm{background:rgba(255,138,61,.1);color:var(--high)}
+
+/* SIEM tabs */
+.tabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--line)}
+.tab{padding:9px 16px;font-size:13px;font-weight:600;color:var(--txt-dim);border-bottom:2px solid transparent;transition:.12s}
+.tab:hover{color:var(--txt)}
+.tab.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+.siem-bar{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:9px;margin-bottom:14px;font-family:var(--mono);font-size:12px}
+.siem-splunk{background:linear-gradient(90deg,rgba(101,163,13,.15),transparent);border:1px solid rgba(101,163,13,.3)}
+.siem-qradar{background:linear-gradient(90deg,rgba(15,98,254,.15),transparent);border:1px solid rgba(15,98,254,.3)}
+.siem-sentinel{background:linear-gradient(90deg,rgba(0,120,212,.15),transparent);border:1px solid rgba(0,120,212,.3)}
+.spl-query{background:#05080f;border:1px solid var(--line2);border-radius:8px;padding:12px;font-family:var(--mono);
+  font-size:12.5px;color:var(--green);margin-bottom:14px;white-space:pre-wrap;line-height:1.6}
+.spl-query .cmd{color:var(--cyan)}.spl-query .str{color:var(--amber)}.spl-query .fn{color:#c792ea}
+
+/* code editor look */
+.code-box{background:#05080f;border:1px solid var(--line2);border-radius:9px;overflow:hidden}
+.code-box .cb-head{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg2);border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--txt-dim)}
+.code-box textarea{width:100%;min-height:220px;background:transparent;border:none;color:var(--green);
+  font-family:var(--mono);font-size:12.5px;padding:12px;resize:vertical;outline:none;line-height:1.6}
+.dotr,.doty,.dotg{width:10px;height:10px;border-radius:50%}
+.dotr{background:#ff5f56}.doty{background:#ffbd2e}.dotg{background:#27c93f}
+
+/* progress / lifecycle */
+.lifecycle{display:flex;gap:0;overflow-x:auto;padding:6px 0;margin-bottom:8px}
+.lc-step{flex:1;min-width:96px;text-align:center;position:relative;padding-top:26px}
+.lc-step::before{content:'';position:absolute;top:8px;left:0;right:0;height:2px;background:var(--line2)}
+.lc-step:first-child::before{left:50%}.lc-step:last-child::before{right:50%}
+.lc-step .node{position:absolute;top:2px;left:50%;transform:translateX(-50%);width:16px;height:16px;border-radius:50%;
+  background:var(--bg);border:2px solid var(--line2);z-index:2}
+.lc-step.done .node{background:var(--green);border-color:var(--green);box-shadow:0 0 8px var(--green)}
+.lc-step.current .node{background:var(--cyan);border-color:var(--cyan);box-shadow:0 0 10px var(--cyan);animation:pulse 1.5s infinite}
+.lc-step.done::before,.lc-step.current::before{background:var(--green)}
+.lc-step .lbl{font-size:10px;color:var(--txt-faint);font-weight:600}
+.lc-step.done .lbl,.lc-step.current .lbl{color:var(--txt)}
+
+/* misc */
+.kv{display:grid;grid-template-columns:104px 1fr;gap:6px 12px;font-size:12.5px;margin:4px 0}
+.kv .k{color:var(--txt-faint);font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+.kv .v{color:var(--txt);font-family:var(--mono);word-break:break-all}
+.section-divider{font-size:10.5px;text-transform:uppercase;letter-spacing:1.2px;color:var(--cyan);
+  font-weight:700;margin:18px 0 10px;display:flex;align-items:center;gap:9px}
+.section-divider::after{content:'';flex:1;height:1px;background:var(--line)}
+.empty-hint{color:var(--txt-faint);font-size:12px;padding:14px;text-align:center;font-style:italic}
+.note-item{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:9px 11px;margin-bottom:7px;font-size:12px}
+.note-item .nh{font-size:10px;color:var(--txt-faint);font-family:var(--mono);margin-bottom:3px}
+.timeline{position:relative;padding-left:6px;margin-top:6px}
+.tl-row{display:flex;align-items:flex-start;gap:10px;padding:5px 0;position:relative}
+.tl-time{color:var(--cyan);font-size:11px;min-width:62px;padding-top:1px}
+.tl-dot{width:9px;height:9px;border-radius:50%;background:var(--line2);border:2px solid var(--panel);margin-top:3px;flex:none;box-shadow:0 0 0 1px var(--line2)}
+.tl-dot.phase{background:var(--high);box-shadow:0 0 8px var(--high)}
+.tl-txt{font-size:12.5px;color:var(--txt);line-height:1.45}
+.ev-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ev-item{display:flex;gap:9px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:8px 10px}
+
+/* toast */
+#toasts{position:fixed;bottom:20px;right:20px;z-index:300;display:flex;flex-direction:column;gap:10px}
+.toast{background:var(--panel);border:1px solid var(--line2);border-left:3px solid var(--cyan);border-radius:8px;
+  padding:12px 16px;min-width:280px;max-width:380px;box-shadow:0 12px 40px rgba(0,0,0,.5);animation:toastin .3s ease;font-size:13px}
+.toast.ok{border-left-color:var(--green)}.toast.warn{border-left-color:var(--high)}.toast.crit{border-left-color:var(--crit)}
+.toast b{display:block;margin-bottom:2px;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+@keyframes toastin{from{opacity:0;transform:translateX(30px)}to{opacity:1}}
+
+/* modal */
+#modal{position:fixed;inset:0;z-index:250;background:rgba(3,6,12,.78);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:20px}
+.modal-card{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line2);border-radius:14px;
+  width:760px;max-width:96vw;max-height:90vh;overflow-y:auto;box-shadow:0 40px 100px rgba(0,0,0,.7)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:2}
+.modal-head h2{font-family:var(--disp);font-size:19px;color:#fff}
+.modal-body{padding:22px}
+.x-btn{background:none;border:none;color:var(--txt-dim);font-size:22px;line-height:1}
+.x-btn:hover{color:var(--crit)}
+
+.atk-card{border:1px solid var(--line2);border-radius:11px;padding:16px;transition:.15s;background:var(--panel)}
+.atk-card:hover{border-color:var(--high);box-shadow:0 10px 30px rgba(0,0,0,.35);transform:translateY(-2px)}
+.atk-card .atk-ic{font-size:26px;margin-bottom:8px}
+.atk-card h4{font-size:14px;color:#fff;margin-bottom:4px}
+.atk-card p{font-size:11.5px;color:var(--txt-faint);line-height:1.5;margin-bottom:12px;min-height:48px}
+
+.hidden{display:none!important}
+.flex{display:flex}.between{justify-content:space-between}.center{align-items:center}.gap{gap:10px}.wrap{flex-wrap:wrap}
+.mt{margin-top:14px}.mb{margin-bottom:14px}
+.txt-dim{color:var(--txt-dim)}.txt-faint{color:var(--txt-faint)}
+small.help{display:block;color:var(--txt-faint);font-size:11px;margin-top:4px}
+.chart-h{position:relative;height:230px}
+.chart-h.sm{height:180px}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="login-card">
+    <div class="login-logo">SOC<span>Verse</span></div>
+    <div class="login-sub">// SECURITY OPERATIONS CENTER · INCIDENT LIFECYCLE SIMULATOR</div>
+    <div class="fld">
+      <label>Analyst Name</label>
+      <input id="loginName" placeholder="e.g. A. Mercer" value="Analyst">
+    </div>
+    <div class="fld">
+      <label>Select Role · Access Tier</label>
+      <div class="role-grid" id="roleGrid">
+        <div class="role-opt sel" data-role="L1"><b>L1</b><small>Triage · Monitoring</small></div>
+        <div class="role-opt" data-role="L2"><b>L2</b><small>Investigation</small></div>
+        <div class="role-opt" data-role="L3"><b>L3</b><small>Hunt · Response</small></div>
+        <div class="role-opt" data-role="Manager"><b>Manager</b><small>Oversight · Metrics</small></div>
+      </div>
+    </div>
+    <button class="btn-login" onclick="doLogin()">ENTER SOC ▸</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span>SOC<span>Verse</span></div>
+    <div class="top-stats" id="topStats"></div>
+    <div class="top-right">
+      <div class="clock" id="clock">--:--:--</div>
+      <button class="btn sm" id="engineBtn" onclick="toggleEngine()">⏸ Pause Feed</button>
+      <div class="user-chip">
+        <div class="ava" id="userAva">A</div>
+        <div class="meta"><b id="userName">Analyst</b><small id="userRole">L1</small></div>
+      </div>
+      <button class="logout" onclick="logout()">Exit</button>
+    </div>
+  </div>
+
+  <nav class="sidebar" id="sidebar"></nav>
+  <main class="main" id="main"></main>
+</div>
+
+<div id="toasts"></div>
+<div id="modal"><div class="modal-card"><div class="modal-head"><h2 id="modalTitle"></h2><button class="x-btn" onclick="closeModal()">×</button></div><div class="modal-body" id="modalBody"></div></div></div>
+
+<script>
+/* ============================================================
+   SOCVerse — single-file SOC simulation engine
+   ============================================================ */
+
+/* ---------- reference data ---------- */
+const SOURCES = ['Firewall','IDS/IPS','EDR','Win Event Log','Linux Log','DNS Log','Proxy Log','Cloud Log'];
+const SEVS = ['Critical','High','Medium','Low'];
+const CATEGORIES = ['Malware','Brute Force','Phishing','Privilege Escalation','Data Exfiltration',
+  'C2 Traffic','Insider Threat','Reconnaissance','Policy Violation','Suspicious Login','Lateral Movement','Ransomware'];
+
+const MITRE = [
+  {tac:'Reconnaissance',techs:[['T1595','Active Scanning'],['T1592','Victim Host Info'],['T1589','Gather Identity Info']]},
+  {tac:'Initial Access',techs:[['T1566','Phishing'],['T1190','Exploit Public App'],['T1078','Valid Accounts'],['T1133','External Remote Svc']]},
+  {tac:'Execution',techs:[['T1059','Command/Script Interp'],['T1204','User Execution'],['T1053','Scheduled Task']]},
+  {tac:'Persistence',techs:[['T1547','Boot/Logon Autostart'],['T1136','Create Account'],['T1505','Server Software']]},
+  {tac:'Priv. Escalation',techs:[['T1068','Exploit Priv Esc'],['T1055','Process Injection'],['T1134','Token Manipulation']]},
+  {tac:'Defense Evasion',techs:[['T1070','Indicator Removal'],['T1027','Obfuscated Files'],['T1562','Impair Defenses']]},
+  {tac:'Credential Access',techs:[['T1110','Brute Force'],['T1003','OS Cred Dumping'],['T1555','Creds from Stores']]},
+  {tac:'Discovery',techs:[['T1087','Account Discovery'],['T1018','Remote Sys Discovery'],['T1046','Network Svc Scan']]},
+  {tac:'Lateral Movement',techs:[['T1021','Remote Services'],['T1570','Lateral Tool Transfer'],['T1080','Taint Shared Content']]},
+  {tac:'Collection',techs:[['T1005','Data Local System'],['T1114','Email Collection'],['T1056','Input Capture']]},
+  {tac:'Command & Control',techs:[['T1071','App Layer Protocol'],['T1572','Protocol Tunneling'],['T1105','Ingress Tool Transfer']]},
+  {tac:'Exfiltration',techs:[['T1041','Exfil over C2'],['T1048','Exfil Alt Protocol'],['T1567','Exfil Web Service']]},
+  {tac:'Impact',techs:[['T1486','Data Encrypted (Ransom)'],['T1490','Inhibit Recovery'],['T1499','Endpoint DoS']]},
+];
+
+// attack scenario templates -> generate correlated alert chains
+const SCENARIOS = {
+  brute:{name:'Brute Force Attack',icon:'🔓',cat:'Brute Force',sev:'High',
+    mitre:['T1110','T1078'],desc:'Repeated failed auth from a single source against multiple accounts.',
+    steps:['Firewall','IDS/IPS','Win Event Log','EDR']},
+  phish:{name:'Phishing Attack',icon:'🎣',cat:'Phishing',sev:'High',
+    mitre:['T1566','T1204','T1059'],desc:'Malicious email delivered; user clicks weaponized link/attachment.',
+    steps:['Proxy Log','DNS Log','EDR','Win Event Log']},
+  malware:{name:'Malware Infection',icon:'🦠',cat:'Malware',sev:'Critical',
+    mitre:['T1204','T1059','T1055','T1071'],desc:'Endpoint executes malicious payload, beacons out.',
+    steps:['EDR','Proxy Log','DNS Log','IDS/IPS']},
+  ransom:{name:'Ransomware Attack',icon:'🔒',cat:'Ransomware',sev:'Critical',
+    mitre:['T1486','T1490','T1059','T1021'],desc:'Mass file encryption and shadow-copy deletion across hosts.',
+    steps:['EDR','Win Event Log','Firewall','Cloud Log']},
+  privesc:{name:'Privilege Escalation',icon:'⬆️',cat:'Privilege Escalation',sev:'High',
+    mitre:['T1068','T1134','T1055'],desc:'Local account gains SYSTEM/root through exploit or token abuse.',
+    steps:['Win Event Log','Linux Log','EDR']},
+  exfil:{name:'Data Exfiltration',icon:'📤',cat:'Data Exfiltration',sev:'Critical',
+    mitre:['T1041','T1048','T1567'],desc:'Large outbound transfer to untrusted destination.',
+    steps:['Proxy Log','Firewall','Cloud Log','DNS Log']},
+  insider:{name:'Insider Threat',icon:'🕵️',cat:'Insider Threat',sev:'Medium',
+    mitre:['T1078','T1005','T1114'],desc:'Authorized user accesses/copies data outside normal scope.',
+    steps:['Cloud Log','Win Event Log','Proxy Log']},
+  c2:{name:'Command & Control Traffic',icon:'📡',cat:'C2 Traffic',sev:'High',
+    mitre:['T1071','T1572','T1105'],desc:'Beaconing to known C2 infrastructure on regular intervals.',
+    steps:['DNS Log','Proxy Log','Firewall','IDS/IPS']},
+};
+
+/* random pools */
+const FIRST=['Alex','Jordan','Priya','Wei','Sam','Mara','Leo','Nadia','Omar','Tess','Ravi','Yuki','Diego','Hana','Cole'];
+const LAST=['Chen','Patel','Nguyen','Okafor','Silva','Kim','Rossi','Haddad','Larsson','Ortiz','Singh','Ivanov'];
+const HOSTS=['WIN-HR-014','WIN-FIN-022','SRV-DC01','SRV-WEB02','LX-APP-07','WIN-CEO-LT','SRV-SQL01','WIN-DEV-31','LX-DB-03','WIN-OPS-09'];
+const USERS=['j.smith','m.lopez','svc_backup','admin','a.kumar','root','k.brown','d.wright','svc_sql','guest','t.evans'];
+const BAD_DOMAINS=['secure-update-login.com','cdn-tracker-x.ru','invoice-docs-share.net','mail-verify-account.co','update-flash-player.info','telemetry-sync.xyz','paypaI-secure.com','dropbx-files.net'];
+const BAD_URLS=['/wp-content/upload/x.php','/api/v2/exfil','/get?id=AES256','/payload/stage2.dll','/login/verify.html','/cdn/jquery.min.js?c2'];
+function randHash(){const h='0123456789abcdef';let s='';for(let i=0;i<64;i++)s+=h[Math.floor(Math.random()*16)];return s;}
+function intIP(){return `${rnd(1,223)}.${rnd(0,255)}.${rnd(0,255)}.${rnd(1,254)}`;}
+function privIP(){return `10.${rnd(0,40)}.${rnd(0,255)}.${rnd(1,254)}`;}
+function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+function pick(a){return a[Math.floor(Math.random()*a.length)];}
+function pad(n){return String(n).padStart(2,'0');}
+function analystName(){return pick(FIRST)+' '+pick(LAST);}
+
+/* alert message templates per source */
+function alertContent(source,cat){
+  const ip=intIP(),host=pick(HOSTS),user=pick(USERS),dom=pick(BAD_DOMAINS),hash=randHash(),url=pick(BAD_URLS);
+  const M={
+   'Firewall':[`Blocked inbound ${rnd(40,9000)} connections from ${ip} to ${host}`,`Outbound to ${ip}:${pick([4444,8080,53,443])} matched threat feed`,`Port scan detected from ${ip} across ${rnd(20,800)} ports`],
+   'IDS/IPS':[`Signature ET-${rnd(2000000,2099999)} triggered: ${cat} from ${ip}`,`Exploit attempt CVE-2024-${rnd(1000,9999)} against ${host}`,`Suricata alert: anomalous payload to ${host}`],
+   'EDR':[`Process ${pick(['powershell.exe','rundll32.exe','wscript.exe','mshta.exe','cmd.exe'])} spawned by ${pick(['winword.exe','outlook.exe','chrome.exe'])} on ${host}`,`Malicious binary quarantined on ${host} (sha256 ${hash.slice(0,12)}…)`,`Suspicious script execution by ${user} on ${host}`],
+   'Win Event Log':[`Event 4625: ${rnd(8,240)} failed logons for ${user} on ${host}`,`Event 4672: special privileges assigned to ${user}`,`Event 4688: new process created by ${user} on ${host}`,`Event 1102: audit log cleared on ${host}`],
+   'Linux Log':[`auth.log: ${rnd(10,300)} failed SSH for ${user} from ${ip}`,`sudo: ${user} ran command as root on ${host}`,`cron: unexpected job added by ${user} on ${host}`],
+   'DNS Log':[`High-entropy DNS query to ${dom} from ${host}`,`NXDOMAIN flood / DGA pattern from ${host}`,`Resolution to known-bad ${dom}`],
+   'Proxy Log':[`User ${user} requested ${dom}${url}`,`Large upload ${rnd(50,4096)}MB to ${dom} by ${user}`,`Access to newly-registered domain ${dom}`],
+   'Cloud Log':[`Impossible travel for ${user}: login from 2 geos in ${rnd(4,40)}m`,`S3 bucket made public by ${user}`,`MFA disabled for ${user} via console`,`${rnd(50,5000)} objects downloaded by ${user}`],
+  };
+  return {msg:pick(M[source]||['Anomalous activity detected']),ip,host,user,dom,hash,url};
+}
+
+/* ---------- state ---------- */
+const state={
+  user:null, alerts:[], tickets:[], cases:[], hunts:[], detections:[],
+  seq:1, ticketSeq:1, caseSeq:1, engineOn:true,
+  selAlert:null, selCase:null, view:'overview',
+  history:{labels:[],counts:[]}, // alerts/min for chart
+  metrics:{detected:0,resolved:0,fp:0,escalated:0,contained:0, mttdSum:0,mttdN:0,mttrSum:0,mttrN:0},
+  analysts:[], log:[],
+};
+const LIFECYCLE=['Alert','L1 Triage','Ticket','L2 Investigation','Threat Validation','L3 Hunting','Containment','Eradication','Recovery','Lessons Learned'];
+
+/* seed a few analysts for performance tracking */
+function seedAnalysts(){
+  ['L1','L1','L2','L2','L3'].forEach(r=>state.analysts.push({name:analystName(),role:r,handled:rnd(8,40),avgMin:rnd(4,28),closed:rnd(5,30)}));
+}
+
+/* ---------- alert factory ---------- */
+function makeAlert(opts={}){
+  const source=opts.source||pick(SOURCES);
+  const cat=opts.cat||pick(CATEGORIES);
+  const sev=opts.sev||pick(SEVS.concat(['High','Medium','Medium','Low'])); // weight mid
+  const c=alertContent(source,cat);
+  const mitre=opts.mitre||pick(MITRE).techs.slice(0,rnd(1,2)).map(t=>t[0]);
+  const now=new Date();
+  const a={
+    id:'ALR-'+String(state.seq++).padStart(5,'0'),
+    ts:now.toISOString(), tsNum:now.getTime(),
+    source, cat, sev,
+    title:c.msg,
+    srcIp:c.ip, destIp:privIP(), host:c.host, user:c.user, domain:c.dom, url:c.url, hash:c.hash,
+    status:'New', assignee:null, scenario:opts.scenario||null,
+    mitre, stage:0,
+    iocs:{ip:[c.ip],domain:[c.dom],url:[c.url],hash:[c.hash]},
+    raw:`${now.toISOString()} src=${c.ip} dst=${privIP()} host=${c.host} user=${c.user} sev=${sev} msg="${c.msg}"`,
+    timeline:[{t:now,txt:`Alert generated by ${source}`,who:'SIEM Engine'}],
+    evidence:[], notes:[], enriched:false, fp:false,
+    detectMin: (Math.random()*9+1), // simulated MTTD minutes
+  };
+  state.metrics.detected++;
+  state.metrics.mttdSum+=a.detectMin; state.metrics.mttdN++;
+  state.alerts.unshift(a);
+  if(state.alerts.length>600) state.alerts.length=600;
+  pushFeed(a);
+  if(a.sev==='Critical') toast('crit','CRITICAL ALERT',`${a.id} · ${a.title.slice(0,60)}`);
+  return a;
+}
+
+/* live feed buffer */
+const feedBuf=[];
+function pushFeed(a){
+  const d=new Date(a.tsNum);
+  feedBuf.unshift({ts:`${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`,src:a.source,msg:a.title,sev:a.sev});
+  if(feedBuf.length>120)feedBuf.length=120;
+  if(state.view==='overview'||state.view==='warroom')renderFeedInto();
+}
+
+/* kill-chain narrative per scenario — drives the Investigation Timeline */
+const KILLCHAIN={
+  brute:['Repeated failed logins detected','Account lockout threshold reached','Successful login after brute force','Suspicious session established','Privilege enumeration'],
+  phish:['Phishing email delivered','User clicked malicious link','Credential harvest page loaded','Payload downloaded','Endpoint executed macro'],
+  malware:['Initial payload execution','Process injection observed','DNS beacon to C2','C2 communication established','Secondary payload staged'],
+  ransom:['Initial access via RDP','Defense evasion — AV disabled','Shadow copies deleted','Mass file encryption started','Ransom note dropped'],
+  privesc:['Local account compromised','Exploit executed','Token manipulation','SYSTEM/root obtained','Persistence installed'],
+  exfil:['Sensitive data staged','Archive created','Large outbound transfer','Upload to untrusted host','Exfiltration over web service'],
+  insider:['Off-hours access','Bulk file access','Data copied to removable media','Cloud share created','External share granted'],
+  c2:['DNS query to C2 domain','Beacon callback','Encrypted channel established','Command received','Additional tooling pulled'],
+};
+/* run a full attack scenario = chain of correlated alerts into a case, with a reconstructed kill-chain timeline */
+function runScenario(key){
+  const sc=SCENARIOS[key];
+  const sharedIp=intIP(), sharedHost=pick(HOSTS), sharedUser=pick(USERS), sharedDom=pick(BAD_DOMAINS);
+  const chain=[];
+  const kc=KILLCHAIN[key]||[];
+  const base=Date.now()-(sc.steps.length+1)*2*60000; // stagger timeline ~2 min apart
+  sc.steps.forEach((src,i)=>{
+    const a=makeAlert({source:src,cat:sc.cat,sev:i===sc.steps.length-1?sc.sev:pick(['Medium','High']),mitre:sc.mitre,scenario:sc.name});
+    a.srcIp=sharedIp; a.host=sharedHost; a.user=sharedUser; a.domain=sharedDom;
+    a.iocs.ip=[sharedIp]; a.iocs.domain=[sharedDom];
+    a.title=`[${sc.name}] ${a.title}`;
+    // build a kill-chain timeline shared across the correlated alerts
+    a.timeline=kc.map((txt,j)=>({t:new Date(base+j*2*60000),txt,who:src,phase:true}));
+    a.timeline.push({t:new Date(),txt:`Alert generated by ${src}`,who:'SIEM Engine'});
+    chain.push(a);
+  });
+  toast('crit','ATTACK SIMULATION LAUNCHED',`${sc.name} — ${chain.length} correlated alerts injected`);
+  log(`Scenario "${sc.name}" launched (${chain.length} alerts, shared host ${sharedHost})`);
+  return chain;
+}
+
+function log(txt){state.log.unshift({t:new Date(),txt});if(state.log.length>200)state.log.length=200;}
+
+/* ============================================================
+   NAVIGATION + RBAC
+   ============================================================ */
+const NAV=[
+  {grp:'Command',items:[
+    {id:'overview',ic:'◈',label:'SOC Overview',roles:['L1','L2','L3','Manager']},
+    {id:'warroom',ic:'⌖',label:'War Room',roles:['L1','L2','L3','Manager']},
+  ]},
+  {grp:'Tier 1 · Triage',items:[
+    {id:'triage',ic:'▤',label:'Alert Queue',roles:['L1','L2','L3','Manager'],badge:'newAlerts'},
+    {id:'tickets',ic:'▦',label:'Tickets',roles:['L1','L2','L3','Manager']},
+  ]},
+  {grp:'Tier 2 · Investigation',items:[
+    {id:'invest',ic:'◎',label:'Investigation',roles:['L2','L3','Manager']},
+    {id:'cases',ic:'🗂️',label:'Case Management',roles:['L2','L3','Manager']},
+    {id:'mitre',ic:'⊞',label:'MITRE ATT&CK',roles:['L1','L2','L3','Manager']},
+    {id:'intel',ic:'◍',label:'Threat Intel',roles:['L2','L3','Manager']},
+  ]},
+  {grp:'Tier 3 · Hunt & Respond',items:[
+    {id:'hunt',ic:'⌕',label:'Threat Hunting',roles:['L3','Manager']},
+    {id:'detect',ic:'⊟',label:'Detection Rules',roles:['L3','Manager']},
+    {id:'respond',ic:'⛒',label:'Containment',roles:['L3','Manager']},
+  ]},
+  {grp:'Platform',items:[
+    {id:'siem',ic:'▥',label:'SIEM Consoles',roles:['L1','L2','L3','Manager']},
+    {id:'attacks',ic:'⚡',label:'Attack Simulator',roles:['L1','L2','L3','Manager']},
+    {id:'metrics',ic:'◷',label:'Metrics & SLA',roles:['Manager','L3']},
+    {id:'reports',ic:'▣',label:'Reports',roles:['L1','L2','L3','Manager']},
+  ]},
+];
+function canSee(item){return item.roles.includes(state.user.role);}
+
+function renderNav(){
+  const nav=document.getElementById('sidebar');
+  let h='';
+  NAV.forEach(g=>{
+    const items=g.items.filter(canSee);
+    if(!items.length)return;
+    h+=`<div class="nav-group"><h6>${g.grp}</h6>`;
+    items.forEach(it=>{
+      let badge='';
+      if(it.badge==='newAlerts'){const n=state.alerts.filter(a=>a.status==='New').length;if(n)badge=`<span class="badge">${n>99?'99+':n}</span>`;}
+      h+=`<div class="nav-item ${state.view===it.id?'active':''}" onclick="go('${it.id}')"><span class="ic">${it.ic}</span>${it.label}${badge}</div>`;
+    });
+    h+='</div>';
+  });
+  h+=`<div class="nav-foot">SOCVerse v1.0 · sim mode<br>role: ${state.user.role} · ${state.alerts.length} alerts in memory</div>`;
+  nav.innerHTML=h;
+}
+
+function go(view){
+  // guard RBAC
+  const all=NAV.flatMap(g=>g.items);
+  const item=all.find(i=>i.id===view);
+  if(item && !canSee(item)){toast('warn','ACCESS DENIED',`Role ${state.user.role} cannot access ${item.label}`);return;}
+  state.view=view; renderNav(); renderView();
+  document.getElementById('main').scrollTop=0;
+}
+
+/* ============================================================
+   TOP BAR / SHELL
+   ============================================================ */
+function renderTop(){
+  const open=state.alerts.filter(a=>['New','Acknowledged','InProgress'].includes(a.status)).length;
+  const crit=state.alerts.filter(a=>a.sev==='Critical'&&a.status!=='Closed'&&a.status!=='FalsePositive').length;
+  const esc=state.alerts.filter(a=>a.status==='Escalated').length;
+  document.getElementById('topStats').innerHTML=`
+    <div class="tstat"><span class="lbl">Open</span><b style="color:var(--cyan)">${open}</b></div>
+    <div class="tstat"><span class="lbl">Critical</span><b style="color:var(--crit)">${crit}</b></div>
+    <div class="tstat"><span class="lbl">Escalated</span><b style="color:var(--high)">${esc}</b></div>
+    <div class="tstat"><span class="lbl">Cases</span><b style="color:var(--green)">${state.cases.length}</b></div>`;
+}
+
+/* ============================================================
+   HELPERS — toast, modal, pills
+   ============================================================ */
+function toast(type,title,msg){
+  const el=document.createElement('div');
+  el.className='toast '+(type||'');
+  el.innerHTML=`<b>${title}</b>${msg||''}`;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transition='.4s';setTimeout(()=>el.remove(),400)},4200);
+}
+function openModal(title,body){
+  document.getElementById('modalTitle').textContent=title;
+  document.getElementById('modalBody').innerHTML=body;
+  document.getElementById('modal').style.display='flex';
+}
+function closeModal(){document.getElementById('modal').style.display='none';}
+function sevPill(s){return `<span class="pill sev-${s}">${s}</span>`;}
+function stPill(s){return `<span class="pill st-${s}">${s.replace(/([A-Z])/g,' $1').trim()}</span>`;}
+function fmtTime(d){d=new Date(d);return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;}
+function fmtDate(d){d=new Date(d);return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${fmtTime(d)}`;}
+function ago(d){const s=Math.floor((Date.now()-new Date(d).getTime())/1000);if(s<60)return s+'s';if(s<3600)return Math.floor(s/60)+'m';return Math.floor(s/3600)+'h';}
+
+/* ============================================================
+   ENGINE + CLOCK
+   ============================================================ */
+let engineTimer=null, clockTimer=null;
+function engineTick(){
+  if(!state.engineOn)return;
+  // generate 1-3 alerts every few seconds
+  const n=rnd(1,2);
+  for(let i=0;i<n;i++) if(Math.random()<0.8) makeAlert();
+  // history for chart (per tick)
+  const t=new Date();
+  state.history.labels.push(`${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`);
+  state.history.counts.push(n);
+  if(state.history.labels.length>30){state.history.labels.shift();state.history.counts.shift();}
+  renderTop(); renderNav();
+  if(['overview','triage','metrics','warroom','siem'].includes(state.view)) softRefresh();
+}
+function toggleEngine(){
+  state.engineOn=!state.engineOn;
+  document.getElementById('engineBtn').textContent=state.engineOn?'⏸ Pause Feed':'▶ Resume Feed';
+  toast(state.engineOn?'ok':'warn',state.engineOn?'FEED RESUMED':'FEED PAUSED','Alert generation '+(state.engineOn?'active':'halted'));
+}
+function startClock(){
+  clockTimer=setInterval(()=>{const d=new Date();document.getElementById('clock').textContent=`${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} UTC`;},1000);
+}
+
+/* soft refresh: only re-render charts/feed for current view without rebuilding inputs */
+function softRefresh(){
+  if(state.view==='overview') updateOverviewCharts();
+  if(state.view==='triage') refreshTriageTable();
+  if(state.view==='metrics') updateMetricCharts();
+  if(state.view==='siem') refreshSiem();
+  if(state.view==='warroom') renderFeedInto();
+}
+
+/* ============================================================
+   LOGIN
+   ============================================================ */
+document.getElementById('roleGrid').addEventListener('click',e=>{
+  const o=e.target.closest('.role-opt');if(!o)return;
+  document.querySelectorAll('.role-opt').forEach(x=>x.classList.remove('sel'));
+  o.classList.add('sel');
+});
+function doLogin(){
+  const name=document.getElementById('loginName').value.trim()||'Analyst';
+  const role=document.querySelector('.role-opt.sel').dataset.role;
+  state.user={name,role};
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='grid';
+  document.getElementById('userName').textContent=name;
+  document.getElementById('userRole').textContent=role+' Analyst';
+  document.getElementById('userAva').textContent=name[0].toUpperCase();
+  // seed initial data
+  seedAnalysts();
+  for(let i=0;i<28;i++) makeAlert();
+  runScenario('phish'); runScenario('brute');
+  // default landing view by role
+  state.view = role==='Manager'?'metrics': role==='L3'?'hunt': role==='L2'?'invest':'triage';
+  renderNav(); renderTop(); renderView(); startClock();
+  engineTimer=setInterval(engineTick,3500);
+  toast('ok','SESSION STARTED',`Welcome ${name} · ${role} access granted`);
+}
+function logout(){
+  clearInterval(engineTimer);clearInterval(clockTimer);
+  location.reload();
+}
+
+/* ============================================================
+   VIEW ROUTER
+   ============================================================ */
+let charts={};
+function destroyCharts(){Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}});charts={};}
+function renderView(){
+  destroyCharts();
+  const m=document.getElementById('main');
+  const V={overview:viewOverview,warroom:viewWarRoom,triage:viewTriage,tickets:viewTickets,
+    invest:viewInvest,cases:viewCases,mitre:viewMitre,intel:viewIntel,hunt:viewHunt,detect:viewDetect,
+    respond:viewRespond,siem:viewSiem,attacks:viewAttacks,metrics:viewMetrics,reports:viewReports};
+  (V[state.view]||viewOverview)();
+}
+
+/* ---------- OVERVIEW ---------- */
+function viewOverview(){
+  const a=state.alerts;
+  const crit=a.filter(x=>x.sev==='Critical').length;
+  const open=a.filter(x=>['New','Acknowledged','InProgress'].includes(x.status)).length;
+  const mttd=state.metrics.mttdN?(state.metrics.mttdSum/state.metrics.mttdN):0;
+  const mttr=state.metrics.mttrN?(state.metrics.mttrSum/state.metrics.mttrN):0;
+  document.getElementById('main').innerHTML=`
+    <div class="view-head"><div><div class="crumb">Command · Live</div><h1>SOC Overview</h1>
+      <div class="sub">Real-time monitoring across ${SOURCES.length} telemetry sources · ${a.length} alerts ingested this session</div></div></div>
+    <div class="grid kpi-row mb">
+      ${kpi('Alerts Ingested',a.length,'▲ live','up','◈')}
+      ${kpi('Open Alerts',open,open>30?'high load':'nominal',open>30?'down':'up','▤')}
+      ${kpi('Critical Active',crit,'requires triage',crit>0?'down':'up','⚠')}
+      ${kpi('Mean Time To Detect',mttd.toFixed(1)+'m',mttd<5?'within SLA':'review','',mttd<5?'up':'down')}
+      ${kpi('Mean Time To Respond',mttr?mttr.toFixed(1)+'m':'—',state.metrics.resolved+' resolved','up','◷')}
+      ${kpi('Open Cases',state.cases.length,state.metrics.escalated+' escalated','','◎')}
+    </div>
+    <div class="grid mb" style="grid-template-columns:1.4fr 1fr">
+      <div class="card glow"><h3>◈ Alert Volume (live)</h3><div class="ch-sub">alerts generated per ingestion cycle</div><div class="chart-h"><canvas id="cVol"></canvas></div></div>
+      <div class="card glow"><h3>⚠ Severity Distribution</h3><div class="ch-sub">all alerts this session</div><div class="chart-h"><canvas id="cSev"></canvas></div></div>
+    </div>
+    <div class="grid mb" style="grid-template-columns:1fr 1fr">
+      <div class="card"><h3>▥ Alerts by Source</h3><div class="ch-sub">telemetry contribution</div><div class="chart-h sm"><canvas id="cSrc"></canvas></div></div>
+      <div class="card"><h3>◎ Alert Status Pipeline</h3><div class="ch-sub">workflow distribution</div><div class="chart-h sm"><canvas id="cStat"></canvas></div></div>
+    </div>
+    <div class="card glow"><h3>⌗ Live Event Feed <span class="pill st-Acknowledged" style="margin-left:8px">STREAMING</span></h3>
+      <div class="ch-sub">raw normalized telemetry from the ingestion pipeline</div>
+      <div class="feed" id="liveFeed"></div></div>`;
+  renderFeedInto();
+  buildOverviewCharts();
+}
+function kpi(lbl,val,delta,dir,spark){
+  return `<div class="card kpi"><div class="lbl">${lbl}</div><div class="val">${val}</div>
+    <div class="delta ${dir||''}">${delta||''}</div><div class="spark">${spark||''}</div></div>`;
+}
+function severityCounts(){const c={Critical:0,High:0,Medium:0,Low:0};state.alerts.forEach(a=>c[a.sev]++);return c;}
+function sourceCounts(){const c={};SOURCES.forEach(s=>c[s]=0);state.alerts.forEach(a=>c[a.source]++);return c;}
+function statusCounts(){const c={};state.alerts.forEach(a=>c[a.status]=(c[a.status]||0)+1);return c;}
+
+function buildOverviewCharts(){
+  const sv=severityCounts();
+  charts.vol=new Chart(document.getElementById('cVol'),{type:'line',
+    data:{labels:[...state.history.labels],datasets:[{data:[...state.history.counts],borderColor:'#22d3ee',
+      backgroundColor:'rgba(34,211,238,.12)',fill:true,tension:.35,pointRadius:0,borderWidth:2}]},
+    options:lineOpts()});
+  charts.sev=new Chart(document.getElementById('cSev'),{type:'doughnut',
+    data:{labels:Object.keys(sv),datasets:[{data:Object.values(sv),
+      backgroundColor:['#ff4d6d','#ff8a3d','#f5b544','#3da8ff'],borderColor:'#0b1120',borderWidth:3}]},
+    options:doughOpts()});
+  const sc=sourceCounts();
+  charts.src=new Chart(document.getElementById('cSrc'),{type:'bar',
+    data:{labels:Object.keys(sc),datasets:[{data:Object.values(sc),backgroundColor:'#34e0a1',borderRadius:4}]},
+    options:barOpts()});
+  const st=statusCounts();
+  charts.stat=new Chart(document.getElementById('cStat'),{type:'bar',
+    data:{labels:Object.keys(st),datasets:[{data:Object.values(st),backgroundColor:'#22d3ee',borderRadius:4}]},
+    options:barOpts(true)});
+}
+function updateOverviewCharts(){
+  if(charts.vol){charts.vol.data.labels=[...state.history.labels];charts.vol.data.datasets[0].data=[...state.history.counts];charts.vol.update('none');}
+  if(charts.sev){const s=severityCounts();charts.sev.data.datasets[0].data=Object.values(s);charts.sev.update('none');}
+  if(charts.src){const s=sourceCounts();charts.src.data.datasets[0].data=Object.values(s);charts.src.update('none');}
+  if(charts.stat){const s=statusCounts();charts.stat.data.labels=Object.keys(s);charts.stat.data.datasets[0].data=Object.values(s);charts.stat.update('none');}
+  renderFeedInto();
+}
+function renderFeedInto(){
+  const el=document.getElementById('liveFeed')||document.getElementById('warFeed');
+  if(!el)return;
+  el.innerHTML=feedBuf.slice(0,60).map(f=>`<div class="feed-row"><span class="ts">${f.ts}</span><span class="src">${f.src}</span><span class="msg">${f.msg}</span><span class="sv">${sevPill(f.sev)}</span></div>`).join('');
+}
+/* chart option presets */
+const GRID='rgba(39,57,90,.5)', TICK='#7f93b3';
+function lineOpts(){return{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+  scales:{x:{grid:{color:GRID},ticks:{color:TICK,maxTicksLimit:8,font:{size:9}}},y:{grid:{color:GRID},ticks:{color:TICK,font:{size:10}},beginAtZero:true}}};}
+function barOpts(horiz){return{indexAxis:horiz?'y':'x',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+  scales:{x:{grid:{color:GRID},ticks:{color:TICK,font:{size:9}}},y:{grid:{color:GRID},ticks:{color:TICK,font:{size:10}}}}};}
+function doughOpts(){return{responsive:true,maintainAspectRatio:false,cutout:'62%',
+  plugins:{legend:{position:'right',labels:{color:'#cfe0f5',font:{size:11},boxWidth:12,padding:10}}}};}
+
+/* ---------- WAR ROOM ---------- */
+function viewWarRoom(){
+  const critical=state.alerts.filter(a=>a.sev==='Critical'&&!['Closed','FalsePositive'].includes(a.status)).slice(0,8);
+  const activeCases=state.cases.filter(c=>c.status!=='Closed');
+  document.getElementById('main').innerHTML=`
+    <div class="view-head"><div><div class="crumb">Command · Collaboration</div><h1>⌖ Incident War Room</h1>
+      <div class="sub">Shared situational picture for active major incidents — all tiers coordinate here</div></div>
+      <div class="btn-row"><button class="btn warn" onclick="go('attacks')">⚡ Launch Drill</button></div></div>
+    <div class="grid mb" style="grid-template-columns:1fr 1fr 1fr">
+      ${kpi('DEFCON',critical.length>3?'2 · HIGH':critical.length?'3 · ELEVATED':'4 · GUARDED',critical.length+' critical open',critical.length?'down':'up','⌖')}
+      ${kpi('Active Cases',activeCases.length,state.metrics.escalated+' escalated to L3','','◎')}
+      ${kpi('Contained',state.metrics.contained,'response actions taken','up','⛒')}
+    </div>
+    <div class="split">
+      <div>
+        <div class="card glow mb"><h3>🔴 Critical Incidents — Active</h3><div class="ch-sub">demands immediate cross-tier attention</div>
+          <div class="tbl-wrap"><table><thead><tr><th>ID</th><th>Severity</th><th>Threat</th><th>Host</th><th>Status</th><th>Age</th></tr></thead><tbody>
+          ${critical.length?critical.map(a=>`<tr onclick="openAlert('${a.id}')"><td class="t-id">${a.id}</td><td>${sevPill(a.sev)}</td><td>${a.cat}</td><td class="mono">${a.host}</td><td>${stPill(a.status)}</td><td class="mono">${ago(a.ts)}</td></tr>`).join(''):'<tr><td colspan="6" class="empty-hint">No critical incidents — posture nominal</td></tr>'}
+          </tbody></table></div></div>
+        <div class="card"><h3>📋 Active Case Board</h3><div class="ch-sub">investigations in progress across L2/L3</div>
+          ${activeCases.length?activeCases.map(c=>caseRow(c)).join(''):'<div class="empty-hint">No open cases. Escalate alerts from the Investigation view to create cases.</div>'}
+        </div>
+      </div>
+      <div class="card glow"><h3>⌗ War Room Feed</h3><div class="ch-sub">live telemetry + team actions</div>
+        <div class="feed" id="warFeed" style="height:520px"></div></div>
+    </div>`;
+  renderFeedInto();
+}
+function caseRow(c){
+  const stageName=LIFECYCLE[c.stage]||'—';
+  return `<div class="note-item flex between center" style="cursor:pointer" onclick="go('invest');setTimeout(()=>openCase('${c.id}'),50)">
+    <div><b class="t-id">${c.id}</b> · ${c.title} ${sevPill(c.sev)}<div class="nh" style="margin-top:4px">stage: ${stageName} · owner: ${c.owner||'unassigned'}</div></div>
+    <div>${stPill(c.status)}</div></div>`;
+}
+
+/* ============================================================
+   L1 · TRIAGE
+   ============================================================ */
+let triageFilter={sev:'',status:'',source:'',q:''};
+function viewTriage(){
+  document.getElementById('main').innerHTML=`
+    <div class="view-head"><div><div class="crumb">Tier 1 · Monitoring & Triage</div><h1>▤ Alert Queue</h1>
+      <div class="sub">Acknowledge, categorize, extract IOCs, flag false positives, and open tickets</div></div></div>
+    <div class="filters">
+      <select class="sel-in" onchange="triageFilter.sev=this.value;refreshTriageTable()"><option value="">All Severities</option>${SEVS.map(s=>`<option>${s}</option>`).join('')}</select>
+      <select class="sel-in" onchange="triageFilter.status=this.value;refreshTriageTable()"><option value="">All Status</option>${['New','Acknowledged','InProgress','Escalated','Closed','FalsePositive'].map(s=>`<option>${s}</option>`).join('')}</select>
+      <select class="sel-in" onchange="triageFilter.source=this.value;refreshTriageTable()"><option value="">All Sources</option>${SOURCES.map(s=>`<option>${s}</option>`).join('')}</select>
+      <input class="txt-in" placeholder="search id, host, user, ip, category…" oninput="triageFilter.q=this.value.toLowerCase();refreshTriageTable()">
+      <button class="btn sm" onclick="bulkAck()">✓ Ack All Visible</button>
+    </div>
+    <div class="split wide">
+      <div class="tbl-wrap"><table><thead><tr><th>ID</th><th>Time</th><th>Sev</th><th>Source</th><th>Category</th><th>Title</th><th>Status</th></tr></thead><tbody id="triageBody"></tbody></table></div>
+      <div id="alertDetail"><div class="card"><div class="detail-empty"><div class="big">▤</div><div>Select an alert to begin triage</div><small class="help">Click any row to view details, extract IOCs, and take action</small></div></div></div>
+    </div>`;
+  refreshTriageTable();
+}
+function filteredAlerts(){
+  return state.alerts.filter(a=>{
+    if(triageFilter.sev&&a.sev!==triageFilter.sev)return false;
+    if(triageFilter.status&&a.status!==triageFilter.status)return false;
+    if(triageFilter.source&&a.source!==triageFilter.source)return false;
+    if(triageFilter.q){const blob=(a.id+a.host+a.user+a.srcIp+a.cat+a.title+a.domain).toLowerCase();if(!blob.includes(triageFilter.q))return false;}
+    return true;
+  });
+}
+function refreshTriageTable(){
+  const tb=document.getElementById('triageBody');if(!tb)return;
+  const list=filteredAlerts().slice(0,150);
+  tb.innerHTML=list.map(a=>`<tr class="${state.selAlert===a.id?'sel':''}" onclick="openAlert('${a.id}')">
+    <td class="t-id">${a.id}</td><td class="mono" style="font-size:11px">${fmtTime(a.ts)}</td><td>${sevPill(a.sev)}</td>
+    <td class="mono" style="font-size:11px">${a.source}</td><td>${a.cat}</td>
+    <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.title}</td><td>${stPill(a.status)}</td></tr>`).join('')
+    ||'<tr><td colspan="7" class="empty-hint">No alerts match filters</td></tr>';
+}
+function bulkAck(){
+  let n=0;filteredAlerts().forEach(a=>{if(a.status==='New'){a.status='Acknowledged';a.assignee=state.user.name;a.timeline.push({t:new Date(),txt:'Acknowledged (bulk)',who:state.user.name});n++;}});
+  toast('ok','BULK ACKNOWLEDGE',`${n} alerts acknowledged`);refreshTriageTable();renderTop();renderNav();
+}
+function openAlert(id){
+  state.selAlert=id;refreshTriageTable();
+  const a=state.alerts.find(x=>x.id===id);if(!a)return;
+  const canL1=true;
+  document.getElementById('alertDetail').innerHTML=`
+    <div class="card glow">
+      <div class="flex between center mb"><h3 style="margin:0">${a.id}</h3>${sevPill(a.sev)}</div>
+      <div style="font-size:13px;color:var(--txt);margin-bottom:12px">${a.title}</div>
+      <div class="kv">
+        <div class="k">Status</div><div class="v">${stPill(a.status)}</div>
+        <div class="k">Source</div><div class="v">${a.source}</div>
+        <div class="k">Category</div><div class="v">${a.cat}</div>
+        <div class="k">Detected</div><div class="v">${fmtDate(a.ts)}</div>
+        <div class="k">Src IP</div><div class="v">${a.srcIp}</div>
+        <div class="k">Dest IP</div><div class="v">${a.destIp}</div>
+        <div class="k">Host</div><div class="v">${a.host}</div>
+        <div class="k">User</div><div class="v">${a.user}</div>
+        <div class="k">Assignee</div><div class="v">${a.assignee||'—'}</div>
+      </div>
+      <div class="section-divider">Raw Event</div>
+      <div class="spl-query" style="margin:0">${a.raw}</div>
+      <div class="section-divider">MITRE ATT&CK</div>
+      <div>${a.mitre.map(t=>`<span class="tag mitre">${t}</span>`).join('')}</div>
+      <div class="section-divider">Extracted IOCs <button class="btn sm" style="margin-left:auto" onclick="extractIOCs('${a.id}')">⟳ Re-extract</button></div>
+      <div id="iocBox">${renderIOCs(a)}</div>
+      <div class="section-divider">L1 Triage Actions</div>
+      <div class="btn-row">
+        <button class="btn ${a.status==='New'?'primary':''}" onclick="ackAlert('${a.id}')" ${a.status!=='New'?'disabled':''}>✓ Acknowledge</button>
+        <button class="btn" onclick="classifyModal('${a.id}')">▤ Categorize</button>
+        <button class="btn warn" onclick="falsePositive('${a.id}')" ${['Closed','FalsePositive'].includes(a.status)?'disabled':''}>⊘ False Positive</button>
+        <button class="btn primary" onclick="createTicketModal('${a.id}')">🎫 Create Ticket</button>
+      </div>
+      <div class="section-divider">Timeline</div>
+      <div class="tl">${a.timeline.map(e=>`<div class="tl-item"><div class="tl-time">${fmtTime(e.t)}</div><div class="tl-txt">${e.txt}</div><div class="tl-meta">${e.who}</div></div>`).join('')}</div>
+    </div>`;
+}
+function renderIOCs(a){
+  const rows=[];
+  if(a.iocs.ip.length)rows.push(['IP',a.iocs.ip.join(', ')]);
+  if(a.iocs.domain.length)rows.push(['Domain',a.iocs.domain.join(', ')]);
+  if(a.iocs.url.length)rows.push(['URL',a.iocs.url.join(', ')]);
+  if(a.iocs.hash.length)rows.push(['SHA256',a.iocs.hash.map(h=>h.slice(0,24)+'…').join(', ')]);
+  return rows.map(r=>`<div style="margin-bottom:4px"><span class="tag ioc">${r[0]}</span> <span class="mono" style="font-size:11.5px;color:var(--txt-dim)">${r[1]}</span></div>`).join('');
+}
+function extractIOCs(id){
+  const a=state.alerts.find(x=>x.id===id);
+  a.timeline.push({t:new Date(),txt:'IOCs extracted from event payload',who:state.user.name});
+  document.getElementById('iocBox').innerHTML=renderIOCs(a);
+  toast('ok','IOCs EXTRACTED',`${a.iocs.ip.length} IP · ${a.iocs.domain.length} domain · ${a.iocs.hash.length} hash`);
+  openAlert(id);
+}
+function ackAlert(id){
+  const a=state.alerts.find(x=>x.id===id);
+  a.status='Acknowledged';a.assignee=state.user.name;a.stage=Math.max(a.stage,1);
+  a.timeline.push({t:new Date(),txt:'Alert acknowledged — entering triage',who:state.user.name});
+  toast('ok','ACKNOWLEDGED',`${id} assigned to ${state.user.name}`);
+  openAlert(id);refreshTriageTable();renderTop();renderNav();
+}
+function classifyModal(id){
+  openModal('Categorize & Classify '+id,`
+    <div class="fld" style="margin-bottom:14px"><label>Incident Category</label>
+      <select class="sel-in" id="clCat" style="width:100%">${CATEGORIES.map(c=>`<option>${c}</option>`).join('')}</select></div>
+    <div class="fld" style="margin-bottom:14px"><label>Severity Re-classification</label>
+      <select class="sel-in" id="clSev" style="width:100%">${SEVS.map(s=>`<option>${s}</option>`).join('')}</select></div>
+    <div class="fld" style="margin-bottom:18px"><label>Initial Classification</label>
+      <select class="sel-in" id="clType" style="width:100%"><option>True Positive — Confirmed Threat</option><option>True Positive — Benign Anomaly</option><option>Suspicious — Needs Investigation</option><option>Informational</option></select></div>
+    <button class="btn primary" onclick="applyClassify('${id}')">Apply Classification</button>`);
+}
+function applyClassify(id){
+  const a=state.alerts.find(x=>x.id===id);
+  a.cat=document.getElementById('clCat').value;
+  a.sev=document.getElementById('clSev').value;
+  const cl=document.getElementById('clType').value;
+  if(a.status==='New'){a.status='Acknowledged';a.assignee=state.user.name;}
+  a.timeline.push({t:new Date(),txt:`Classified: ${cl} · ${a.cat} · ${a.sev}`,who:state.user.name});
+  closeModal();toast('ok','CLASSIFIED',`${id} → ${a.cat} (${a.sev})`);
+  openAlert(id);refreshTriageTable();renderTop();
+}
+function falsePositive(id){
+  const a=state.alerts.find(x=>x.id===id);
+  a.status='FalsePositive';state.metrics.fp++;
+  a.timeline.push({t:new Date(),txt:'Flagged FALSE POSITIVE — closed at triage',who:state.user.name});
+  toast('warn','FALSE POSITIVE',`${id} closed — tuning candidate logged`);
+  openAlert(id);refreshTriageTable();renderTop();renderNav();
+}
+function createTicketModal(id){
+  const a=state.alerts.find(x=>x.id===id);
+  openModal('Create Ticket from '+id,`
+    <div class="kv mb"><div class="k">Alert</div><div class="v">${a.title}</div><div class="k">Severity</div><div class="v">${a.sev}</div></div>
+    <div class="fld" style="margin-bottom:14px"><label>Ticket Title</label><input class="txt-in" id="tkTitle" style="width:100%" value="${a.cat} on ${a.host} — ${a.id}"></div>
+    <div class="fld" style="margin-bottom:14px"><label>Priority</label><select class="sel-in" id="tkPri" style="width:100%"><option>P1 — Critical</option><option ${a.sev==='High'?'selected':''}>P2 — High</option><option ${a.sev==='Medium'?'selected':''}>P3 — Medium</option><option ${a.sev==='Low'?'selected':''}>P4 — Low</option></select></div>
+    <div class="fld" style="margin-bottom:14px"><label>Assign To Tier</label><select class="sel-in" id="tkAssign" style="width:100%"><option>L1 Queue</option><option selected>L2 Investigation</option><option>L3 Threat Hunting</option></select></div>
+    <div class="fld" style="margin-bottom:18px"><label>Triage Notes</label><textarea class="txt-in" id="tkNotes" style="width:100%;min-height:80px;resize:vertical" placeholder="Observed behavior, why this is being escalated…"></textarea></div>
+    <button class="btn primary" onclick="createTicket('${id}')">🎫 Open Ticket</button>`);
+}
+function createTicket(id){
+  const a=state.alerts.find(x=>x.id===id);
+  const t={
+    id:'INC-'+String(state.ticketSeq++).padStart(4,'0'),
+    alertId:id,title:document.getElementById('tkTitle').value,
+    pri:document.getElementById('tkPri').value,tier:document.getElementById('tkAssign').value,
+    notes:document.getElementById('tkNotes').value,status:'Open',
+    created:new Date(),sev:a.sev,cat:a.cat,host:a.host,creator:state.user.name,
+  };
+  state.tickets.unshift(t);
+  a.status='InProgress';a.stage=Math.max(a.stage,2);
+  a.timeline.push({t:new Date(),txt:`Ticket ${t.id} created → ${t.tier}`,who:state.user.name});
+  closeModal();toast('ok','TICKET CREATED',`${t.id} routed to ${t.tier}`);
+  log(`${t.id} created from ${id} by ${state.user.name}`);
+  openAlert(id);refreshTriageTable();renderTop();
+}
+
+/* ============================================================
+   TICKETS
+   ============================================================ */
+function viewTickets(){
+  document.getElementById('main').innerHTML=`
+    <div class="view-head"><div><div class="crumb">Tier 1 · Case Intake</div><h1>▦ Tickets</h1>
+      <div class="sub">Incident tickets opened from triage and routed to investigation tiers</div></div></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Ticket</th><th>Pri</th><th>Title</th><th>Category</th><th>Host</th><th>Routed To</th><th>Creator</th><th>Created</th><th>Status</th></tr></thead><tbody>
+    ${state.tickets.length?state.tickets.map(t=>`<tr onclick="ticketDetail('${t.id}')">
+      <td class="t-id">${t.id}</td><td class="mono">${t.pri.split(' ')[0]}</td><td>${t.title}</td><td>${t.cat}</td>
+      <td class="mono">${t.host}</td><td>${t.tier}</td><td>${t.creator}</td><td class="mono" style="font-size:11px">${fmtDate(t.created)}</td>
+      <td>${stPill(t.status==='Open'?'InProgress':t.status)}</td></tr>`).join(''):'<tr><td colspan="9" class="empty-hint">No tickets yet — create one from the Alert Queue</td></tr>'}
+    </tbody></table></div>`;
+}
+function ticketDetail(id){
+  const t=state.tickets.find(x=>x.id===id);
+  openModal(t.id,`<div class="kv mb">
+    <div class="k">Title</div><div class="v">${t.title}</div>
+    <div class="k">Priority</div><div class="v">${t.pri}</div>
+    <div class="k">Severity</div><div class="v">${t.sev}</div>
+    <div class="k">Source Alert</div><div class="v">${t.alertId}</div>
+    <div class="k">Routed To</div><div class="v">${t.tier}</div>
+    <div class="k">Creator</div><div class="v">${t.creator}</div>
+    <div class="k">Created</div><div class="v">${fmtDate(t.created)}</div></div>
+    <div class="section-divider">Triage Notes</div>
+    <div class="note-item">${t.notes||'No notes provided.'}</div>
+    <div class="btn-row mt"><button class="btn" onclick="closeModal();go('invest');setTimeout(()=>openInvest('${t.alertId}'),60)">→ Open in L2 Investigation</button></div>`);
+}
+function escalateFromTicket(aid){openInvest(aid);}
+
+/* ============================================================
+   L2 · INVESTIGATION
+   ============================================================ */
+function relatedAlerts(a){
+  return state.alerts.filter(x=>x.id!==a.id && (x.srcIp===a.srcIp||x.host===a.host||x.user===a.user||(a.domain&&x.domain===a.domain)));
+}
+// deterministic pseudo-intel from an indicator string
+function intelFor(ind){
+  let h=0;for(const c of ind)h=(h*31+c.charCodeAt(0))>>>0;
+  const score=h%100;
+  const fams=['Emotet','Cobalt Strike','QakBot','AgentTesla','LockBit','RedLine','Mirai','BlackBasta'];
+  const countriesFull=['Russia','China','North Korea','Iran','Brazil','Nigeria','United States','Netherlands'];
+  const countries=['RU','CN','KP','IR','BR','NG','US','NL'];
+  const verdict=score>72?'Malicious':score>45?'Suspicious':'Unknown';
+  const ci=h%countries.length;
+  // deterministic per-provider readings derived from the same hash
+  const vtDetections=score>72?rnd(38,67):score>45?rnd(8,25):rnd(0,4);
+  const confidence=Math.min(99, score>72?rnd(82,98):score>45?rnd(48,74):rnd(3,30));
+  const abuseReports=score>72?rnd(120,940):score>45?rnd(15,90):rnd(0,8);
+  const otxPulses=score>72?rnd(6,22):score>45?rnd(1,7):0;
+  return {score, verdict, family:fams[h%fams.length], country:countries[ci], countryFull:countriesFull[ci],
+    firstSeen:`${rnd(1,28)}d ago`, sources:rnd(2,14), confidence,
+    providers:{
+      virustotal:{name:'VirusTotal', detections:vtDetections, total:72, verdict:vtDetections>30?'Malicious':vtDetections>6?'Suspicious':'Clean'},
+      abuseipdb:{name:'AbuseIPDB', confidence, reports:abuseReports, verdict:confidence>80?'Malicious':confidence>45?'Suspicious':'Clean'},
+      otx:{name:'AlienVault OTX', pulses:otxPulses, verdict:otxPulses>5?'Malicious':otxPulses>0?'Suspicious':'Clean'},
+    }};
+}
+function viewInvest(){
+  // candidates: ticketed / in-progress / escalated alerts
+  const cand=state.alerts.filter(a=>['InProgress','Escalated','Acknowledged'].includes(a.status));
+  document.getElementById('main').innerHTML=`
+    <div class="view-head"><div><div class="crumb">Tier 2 · Incident Investigation</div><h1>◎ Investigation Workspace</h1>
+      <div class="sub">Correlate logs, reconstruct timelines, enrich IOCs, map ATT&CK, collect evidence, escalate to L3</div></div></div>
+    <div class="split wide">
+      <div>
+        <div class="card mb"><h3>Investigation Queue</h3><div class="ch-sub">${cand.length} alerts in active investigation · ${state.cases.length} formal cases</div>
+          <div class="tbl-wrap" style="max-height:240px"><table><thead><tr><th>ID</th><th>Sev</th><th>Category</th><th>Host</th><th>Status</th></tr></thead><tbody>
+          ${cand.slice(0,60).map(a=>`<tr class="${state.selAlert===a.id?'sel':''}" onclick="openInvest('${a.id}')"><td class="t-id">${a.id}</td><td>${sevPill(a.sev)}</td><td>${a.cat}</td><td class="mono">${a.host}</td><td>${stPill(a.status)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty-hint">No alerts in investigation. Acknowledge/ticket alerts in L1 first.</td></tr>'}
+          </tbody></table></div></div>
+        <div id="investWork"><div class="card"><div class="detail-empty"><div class="big">◎</div><div>Select an alert to open the investigation workspace</div></div></div></div>
+      </div>
+      <div class="card"><h3>📁 Formal Cases</h3><div class="ch-sub">escalated to / tracked by L2-L3</div>
+        ${state.cases.length?state.cases.map(c=>caseRow(c)).join(''):'<div class="empty-hint">No cases. Escalate an investigation to create one.</div>'}
+      </div>
+    </div>`;
+}
+function openInvest(id){
+  state.selAlert=id;
+  const a=state.alerts.find(x=>x.id===id);if(!a)return;
+  if(a.status==='Acknowledged'){a.status='InProgress';a.stage=Math.max(a.stage,3);}
+  const rel=relatedAlerts(a);
+  const intel=intelFor(a.srcIp), dIntel=intelFor(a.domain);
+  // attack path nodes
+  const path=[a.srcIp,a.host,a.user,a.cat].filter(Boolean);
+  document.getElementById('investWork').innerHTML=`
+    <div class="card glow">
+      <div class="flex between center mb"><h3 style="margin:0">${a.id} — Investigation</h3>${sevPill(a.sev)}</div>
+      <div style="font-size:13px;margin-bottom:8px">${a.title}</div>
+      <div class="lifecycle">${LIFECYCLE.map((s,i)=>`<div class="lc-step ${i<a.stage?'done':i===a.stage?'current':''}"><div class="node"></div><div class="lbl">${s}</div></div>`).join('')}</div>
+
+      <div class="section-divider">🔗 Log Correlation Engine</div>
+      <div class="ch-sub" style="margin-bottom:8px">Found <b style="color:var(--cyan)">${rel.length}</b> related events sharing IOCs (IP ${a.srcIp} · host ${a.host} · user ${a.user})</div>
+      ${rel.length?`<div class="tbl-wrap" style="max-height:180px"><table><thead><tr><th>ID</th><th>Time</th><th>Source</th><th>Sev</th><th>Event</th></tr></thead><tbody>
+        ${rel.slice(0,20).map(r=>`<tr onclick="openInvest('${r.id}')"><td class="t-id">${r.id}</td><td class="mono" style="font-size:11px">${fmtTime(r.ts)}</td><td class="mono" style="font-size:11px">${r.source}</td><td>${sevPill(r.sev)}</td><td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.title}</td></tr>`).join('')}
+        </tbody></table></div>`:'<div class="empty-hint">No correlated events found.</div>'}
+
+      <div class="section-divider">🕒 Timeline Reconstruction <button class="btn sm" style="margin-left:auto" onclick="rebuildTimeline('${a.id}')">⟳ Rebuild</button></div>
+      <div class="tl" id="invTimeline">${buildTimelineHTML(a,rel)}</div>
+
+      <div class="section-divider">🧭 MITRE ATT&CK Mapping</div>
+      <div class="mb">${a.mitre.map(t=>`<span class="tag mitre">${t} · ${mitreName(t)}</span>`).join('')}
+        <button class="btn sm" style="margin-left:6px" onclick="addMitreModal('${a.id}')">+ Map Technique</button></div>
+
+      <div class="section-divider">🛰 IOC Enrichment · Threat Intelligence</div>
+      <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px">
+        ${enrichCard('IP '+a.srcIp,intel)}
+        ${enrichCard('Domain '+a.domain,dIntel)}
+      </div>
+
+      <div class="section-divider">🧬 Malware Analysis (sandbox)</div>
+      ${malwareCard(a)}
+
+      <div class="section-divider">🌐 Network Traffic Investigation</div>
+      <div class="spl-query" style="margin:0">${a.srcIp} → ${a.destIp}  proto=${pick(['TCP','UDP'])} dport=${pick([443,4444,8080,53,3389])} bytes_out=${rnd(2,4096)}KB flows=${rnd(3,900)} duration=${rnd(1,3600)}s verdict=${intel.verdict.toUpperCase()}</div>
+
+      <div class="section-divider">🗺 Attack Path</div>
+      <div class="flex center wrap gap" style="font-family:var(--mono);font-size:12px">
+        ${path.map((n,i)=>`<span class="tag" style="border-color:var(--cyan-dim);color:var(--cyan)">${n}</span>${i<path.length-1?'<span style="color:var(--high)">▸</span>':''}`).join('')}
+      </div>
+
+      <div class="section-divider">📎 Evidence Collection <button class="btn sm" style="margin-left:auto" onclick="addEvidence('${a.id}')">+ Collect</button></div>
+      <div id="evBox">${renderEvidence(a)}</div>
+
+      <div class="section-divider">⬆ Escalation & Validation</div>
+      <div class="btn-row">
+        <button class="btn" onclick="validateThreat('${a.id}')">✓ Validate Threat</button>
+        <button class="btn warn" onclick="escalateL3('${a.id}')">⬆ Escalate to L3</button>
+        <button class="btn" onclick="addNoteModal('${a.id}')">✎ Add Finding</button>
+      </div>
+      <div class="mt" id="noteBox">${a.notes.map(n=>`<div class="note-item"><div class="nh">${fmtDate(n.t)} · ${n.who}</div>${n.txt}</div>`).join('')}</div>
+    </div>`;
+}
+function mitreName(id){for(const t of MITRE)for(const x of t.techs)if(x[0]===id)return x[1];return 'Technique';}
+function buildTimelineHTML(a,rel){
+  const all=[{t:new Date(a.ts),txt:a.title,who:a.source},...rel.slice(0,8).map(r=>({t:new Date(r.ts),txt:r.title,who:r.source})),...a.timeline.filter(x=>x.who!=='SIEM Engine')];
+  all.sort((x,y)=>new Date(x.t)-new Date(y.t));
+  return all.map(e=>`<div class="tl-item"><div class="tl-time">${fmtTime(e.t)}</div><div class="tl-txt">${e.txt}</div><div class="tl-meta">${e.who}</div></div>`).join('');
+}
+function rebuildTimeline(id){const a=state.alerts.find(x=>x.id===id);document.getElementById('invTimeline').innerHTML=buildTimelineHTML(a,relatedAlerts(a));toast('ok','TIMELINE REBUILT','Correlated events merged chronologically');}
+function enrichCard(label,intel){
+  const col=intel.verdict==='Malicious'?'var(--crit)':intel.verdict==='Suspicious'?'var(--high)':'var(--txt-dim)';
+  return `<div class="card" style="padding:12px;background:var(--bg)">
+    <div class="mono" style="font-size:11px;color:var(--txt-faint);margin-bottom:6px;word-break:break-all">${label}</div>
+    <div class="flex between center"><b style="color:${col};font-size:14px">${intel.verdict}</b><span class="mono" style="font-size:11px">risk ${intel.score}/100</span></div>
+    <div class="kv" style="margin-top:8px;grid-template-columns:80px 1fr">
+      <div class="k">Malware</div><div class="v">${intel.family}</div>
+      <div class="k">Geo</div><div class="v">${intel.country}</div>
+      <div class="k">First Seen</div><div class="v">${intel.firstSeen}</div>
+      <div class="k">Feeds</div><div class="v">${intel.sources} sources</div></div></div>`;
+}
+function malwareCard(a){
+  if(!a.hash)return '<div class="empty-hint">No file hash in this alert.</div>';
+  const it=intelFor(a.hash);
+  const col=it.verdict==='Malicious'?'var(--crit)':it.verdict==='Suspicious'?'var(--high)':'var(--green)';
+  return `<div class="card" style="background:var(--bg);padding:12px">
+    <div class="mono" style="font-size:10.5px;color:var(--txt-faint);word-break:break-all;margin-bottom:8px">sha256: ${a.hash}</div>
+    <div class="flex gap wrap">
+      <div class="tag" style="color:${col};border-color:${col}">VERDICT: ${it.verdict.toUpperCase()}</div>
+      <div class="tag">Detections: ${it.score>72?rnd(40,68):it.score>45?rnd(8,30):rnd(0,4)}/72</div>
+      <div class="tag">Family: ${it.family}</div>
+      <div class="tag">Type: ${pick(['PE32 executable','DLL','Office macro','Script','LNK'])}</div>
+    </div>
+    <div class="ch-sub" style="margin-top:10px">Behaviors: ${pick(['process injection, persistence via Run key, C2 beacon','credential harvesting, defender tamper','file encryption, shadow copy delete','keylogging, screen capture'])}</div></div>`;
+}
+function renderEvidence(a){
+  if(!a.evidence.length)return '<div class="empty-hint">No evidence collected yet.</div>';
+  return a.evidence.map(e=>`<div class="note-item"><div class="nh">${fmtDate(e.t)} · ${e.type}</div>${e.txt}</div>`).join('');
+}
+function addEvidence(id){
+  const a=state.alerts.find(x=>x.id===id);
+  openModal('Collect Evidence — '+id,`
+    <div class="fld" style="margin-bottom:14px"><label>Evidence Type</label>
+      <select class="sel-in" id="evType" style="width:100%"><option>Memory Dump</option><option>PCAP Capture</option><option>Disk Image</option><option>Log Export</option><option>Registry Snapshot</option><option>Process Tree</option><option>Screenshot</option></select></div>
+    <div class="fld" style="margin-bottom:18px"><label>Description / Chain-of-Custody Note</label><textarea class="txt-in" id="evTxt" style="width:100%;min-height:80px" placeholder="What was collected, from where, hash of artifact…"></textarea></div>
+    <button class="btn primary" onclick="saveEvidence('${id}')">📎 Add to Evidence Locker</button>`);
+}
+function saveEvidence(id){
+  const a=state.alerts.find(x=>x.id===id);
+  a.evidence.push({t:new Date(),type:document.getElementById('evType').value,txt:document.getElementById('evTxt').value||'(no description)'});
+  a.timeline.push({t:new Date(),txt:`Evidence collected: ${document.getElementById('evType').value}`,who:state.user.name});
+  closeModal();toast('ok','EVIDENCE COLLECTED','Added to evidence locker with chain-of-custody');
+  document.getElementById('evBox').innerHTML=renderEvidence(a);
+}
+function addMitreModal(id){
+  openModal('Map ATT&CK Technique — '+id,`
+    <select class="sel-in" id="mtSel" style="width:100%;margin-bottom:16px">
+    ${MITRE.map(t=>`<optgroup label="${t.tac}">${t.techs.map(x=>`<option value="${x[0]}">${x[0]} · ${x[1]}</option>`).join('')}</optgroup>`).join('')}</select>
+    <button class="btn primary" onclick="addMitre('${id}')">+ Map Technique</button>`);
+}
+function addMitre(id){
+  const a=state.alerts.find(x=>x.id===id);const t=document.getElementById('mtSel').value;
+  if(!a.mitre.includes(t))a.mitre.push(t);
+  closeModal();toast('ok','TECHNIQUE MAPPED',`${t} · ${mitreName(t)}`);openInvest(id);
+}
+function addNoteModal(id){
+  openModal('Add Finding — '+id,`<textarea class="txt-in" id="ndTxt" style="width:100%;min-height:120px;margin-bottom:16px" placeholder="Investigation finding, hypothesis, conclusion…"></textarea><button class="btn primary" onclick="saveNote('${id}')">Save Finding</button>`);
+}
+function saveNote(id){
+  const a=state.alerts.find(x=>x.id===id);
+  a.notes.unshift({t:new Date(),who:state.user.name+' ('+state.user.role+')',txt:document.getElementById('ndTxt').value||'(empty)'});
+  closeModal();toast('ok','FINDING SAVED','');openInvest(id);
+}
+function validateThreat(id){
+  const a=state.alerts.find(x=>x.id===id);a.stage=Math.max(a.stage,4);
+  a.timeline.push({t:new Date(),txt:'Threat VALIDATED as true positive',who:state.user.name});
+  toast('ok','THREAT VALIDATED',`${id} confirmed — proceed to hunt/contain`);openInvest(id);
+}
+function escalateL3(id){
+  const a=state.alerts.find(x=>x.id===id);
+  a.status='Escalated';a.stage=Math.max(a.stage,5);state.metrics.escalated++;
+  // create formal case carrying evidence, notes, and timeline from the anchor alert
+  const c={id:'CASE-'+String(state.caseSeq++).padStart(4,'0'),title:`${a.cat} — ${a.host}`,sev:a.sev,
+    anchor:a.id,status:'Open',stage:5,owner:state.user.name,assignedTo:'L2 Analyst',created:new Date(),
+    mitre:[...a.mitre],
+    evidence:[...(a.evidence||[]),{t:new Date(),type:'Log',label:`Raw event ${a.id}`,by:'system'}],
+    notes:[...(a.notes||[])],
+    timeline:[...(a.timeline||[]),{t:new Date(),txt:`Case opened from ${a.id}`,who:state.user.name}]};
+  state.cases.unshift(c);
+  a.timeline.push({t:new Date(),txt:`Escalated to L3 — case ${c.id} opened`,who:state.user.name});
+  toast('warn','ESCALATED TO L3',`${c.id} created · threat hunting engaged`);
+  log(`${a.id} escalated to L3 → ${c.id} by ${state.user.name}`);
+  renderTop();renderNav();viewInvest();
+}
+function openCase(cid){
+  const c=state.cases.find(x=>x.id===cid);if(!c)return;openInvest(c.anchor);
+  setTimeout(()=>{const w=document.getElementById('investWork');if(w)w.scrollIntoView({behavior:'smooth'});},60);
+}
+
+/* ============================================================
+   CASE MANAGEMENT MODULE
+   ============================================================ */
+let caseFilter='';
+let selCaseId=null;
+function viewCases(){
+  const cases=state.cases.filter(c=>!caseFilter||c.status===caseFilter);
+  const open=state.cases.filter(c=>c.status!=='Closed').length;
+  const stats={Open:0,Escalated:0,Contained:0,Closed:0};
+  state.cases.forEach(c=>{stats[c.status]=(stats[c.status]||0)+1;});
+  if(!selCaseId && cases[0]) selCaseId=cases[0].id;
+  document.getElementById('main').innerHTML=`
+    <div class="view-head"><div><div class="crumb">Tier 2 · Case Management</div><h1>🗂️ Case Management</h1>
+      <div class="sub">Formal incident cases with assignment, status, evidence, analyst notes, and reconstructed timeline</div></div></div>
+    <div class="grid kpi-row mb">
+      ${kpi('Total Cases',state.cases.length,open+' open','',' 🗂️')}
+      ${kpi('Open',stats.Open||0,'awaiting work',(stats.Open?'down':'up'),'📂')}
+      ${kpi('Escalated',stats.Escalated||0,'to L3 hunting','','⬆')}
+      ${kpi('Contained',stats.Contained||0,'response taken','up','⛒')}
+      ${kpi('Closed',stats.Closed||0,'RCA filed','up','✓')}
+    </div>
+    <div class="filters mb">
+      <select class="sel-in" onchange="caseFilter=this.value;viewCases()">
+        <option value="">All Statuses</option>${['Open','Escalated','Contained','Closed'].map(s=>`<option ${caseFilter===s?'selected':''}>${s}</option>`).join('')}
+      </select>
+      <span class="ch-sub" style="align-self:center">${cases.length} case(s)</span>
+    </div>
+    <div class="split wide">
+      <div class="card" style="max-height:560px;overflow:auto"><h3>Case Queue</h3>
+        ${cases.length?cases.map(c=>{const sel=c.id===selCaseId?'style="border-color:var(--cyan);background:var(--bg)"':'';return `
+          <div class="note-item" ${sel} style="cursor:pointer;${c.id===selCaseId?'border-color:var(--cyan)':''}" onclick="selCaseId='${c.id}';viewCases()">
+            <div class="flex between center"><b class="t-id">${c.id}</b>${stPill(c.status)}</div>
+            <div style="margin:4px 0">${c.title} ${sevPill(c.sev)}</div>
+            <div class="nh">${LIFECYCLE[c.stage]||'—'} · ${c.assignedTo||'unassigned'}</div>
+          </div>`;}).join(''):'<div class="empty-hint">No cases yet. Escalate an investigation from the L2 workspace to open one.</div>'}
+      </div>
+      <div id="caseDetail">${selCaseId?caseDetailHTML(selCaseId):'<div class="card"><div class="empty-hint">Select a case to view details.</div></div>'}</div>
+    </div>`;
+}
+function caseDetailHTML(cid){
+  const c=state.cases.find(x=>x.id===cid);
+  if(!c) return '<div class="card"><div class="empty-hint">Case not found.</div></div>';
+  const a=state.alerts.find(x=>x.id===c.anchor);
+  const intel=a?intelFor(a.srcIp):null;
+  const tl=(c.timeline||[]).slice().sort((x,y)=>new Date(x.t)-new Date(y.t));
+  return `<div class="card glow">
+    <div class="flex between center mb"><h3 style="margin:0">${c.id}</h3>${stPill(c.status)}</div>
+    <div class="kv mb">
+      <div class="k">Case ID</div><div class="v mono">${c.id}</div>
+      <div class="k">Title</div><div class="v">${c.title}</div>
+      <div class="k">Assigned To</div><div class="v">${c.assignedTo||'unassigned'}</div>
+      <div class="k">Owner</div><div class="v">${c.owner||'—'}</div>
+      <div class="k">Severity</div><div class="v">${c.sev}</div>
+      <div class="k">Status</div><div class="v">${c.status}</div>
+      <div class="k">Stage</div><div class="v">${LIFECYCLE[c.stage]||'—'}</div>
+      <div class="k">Anchor Alert</div><div class="v mono">${c.anchor}</div>
+      ${intel?`<div class="k">Source IP Intel</div><div class="v">${a.srcIp} · <b style="color:${tiVerdictColor(intel.verdict)}">${intel.verdict}</b> (${intel.confidence}%, ${intel.countryFull})</div>`:''}
+    </div>
+    <div class="flex gap wrap mb">
+      <select class="sel-in" id="caseAssign"><option ${c.assignedTo==='L1 Analyst'?'selected':''}>L1 Analyst</option><option ${c.assignedTo==='L2 Analyst'?'selected':''}>L2 Analyst</option><option ${c.assignedTo==='L3 Analyst'?'selected':''}>L3 Analyst</option><option ${c.assignedTo==='IR Team'?'selected':''}>IR Team</option></select>
+      <button class="btn" onclick="assignCase('${c.id}')">Reassign</button>
+      <select class="sel-in" id="caseStatus"><option ${c.status==='Open'?'selected':''}>Open</option><option ${c.status==='Escalated'?'selected':''}>Escalated</option><option ${c.status==='Contained'?'selected':''}>Contained</option><option ${c.status==='Closed'?'selected':''}>Closed</option></select>
+      <button class="btn" onclick="setCaseStatus('${c.id}')">Update Status</button>
+      <button class="btn primary" onclick="genReport('incident','${c.anchor}')">⤓ Incident Report</button>
+    </div>
+    <div class="section-divider">📎 Evidence (${(c.evidence||[]).length})</div>
+    <div id="caseEvidence">${evidenceHTML(c)}</div>
+    <div class="flex gap" style="margin:8px 0 4px">
+      <select class="sel-in" id="evType"><option>Log</option><option>Screenshot</option><option>PCAP</option><option>Memory Dump</option><option>File Sample</option></select>
+      <input class="txt-in" id="evLabel" style="flex:1" placeholder="evidence description (e.g. EDR process tree screenshot)">
+      <button class="btn" onclick="addEvidenceToCase('${c.id}')">+ Attach</button>
+    </div>
+    <div class="section-divider">📝 Analyst Notes (${(c.notes||[]).length})</div>
+    <div id="caseNotes">${notesHTML(c)}</div>
+    <div class="flex gap" style="margin:8px 0 4px">
+      <input class="txt-in" id="caseNoteTxt" style="flex:1" placeholder="Add note — e.g. Initial triage completed. Likely phishing compromise. Escalating to L2.">
+      <button class="btn primary" onclick="addNoteToCase('${c.id}')">Save Note</button>
+    </div>
+    <div class="section-divider">🕒 Investigation Timeline</div>
+    <div class="timeline">${tl.length?tl.map(e=>`<div class="tl-row"><span class="tl-time mono">${fmtTime(e.t)}</span><span class="tl-dot ${e.phase?'phase':''}"></span><span class="tl-txt">${e.txt}${e.who?` <span class="nh">— ${e.who}</span>`:''}</span></div>`).join(''):'<div class="empty-hint">No timeline entries.</div>'}</div>
+  </div>`;
+}
+function evidenceHTML(c){
+  const icons={Log:'📄',Screenshot:'🖼️',PCAP:'🌐',['Memory Dump']:'🧠',['File Sample']:'🧬'};
+  return (c.evidence||[]).length?`<div class="ev-grid">${c.evidence.map(e=>`<div class="ev-item"><span style="font-size:18px">${icons[e.type]||'📎'}</span><div><div style="font-size:12.5px;color:var(--txt)">${e.label}</div><div class="nh">${e.type} · ${fmtTime(e.t)} · ${e.by||'analyst'}</div></div></div>`).join('')}</div>`:'<div class="empty-hint">No evidence attached yet.</div>';
+}
+function notesHTML(c){
+  return (c.notes||[]).length?c.notes.map(n=>`<div class="note-item"><div class="nh">${fmtDate(n.t)} · ${n.who}</div>${n.txt}</div>`).join(''):'<div class="empty-hint">No analyst notes yet.</div>';
+}
+function refreshCaseDetail(cid){const el=document.getElementById('caseDetail');if(el)el.innerHTML=caseDetailHTML(cid);}
+function assignCase(cid){const c=state.cases.find(x=>x.id===cid);if(!c)return;c.assignedTo=document.getElementById('caseAssign').value;c.timeline.push({t:new Date(),txt:`Reassigned to ${c.assignedTo}`,who:state.user.name});toast('ok','CASE REASSIGNED',`${cid} → ${c.assignedTo}`);refreshCaseDetail(cid);}
+function setCaseStatus(cid){const c=state.cases.find(x=>x.id===cid);if(!c)return;const s=document.getElementById('caseStatus').value;c.status=s;if(s==='Contained')c.stage=Math.max(c.stage,6);if(s==='Closed')c.stage=9;c.timeline.push({t:new Date(),txt:`Status set to ${s}`,who:state.user.name});toast('ok','STATUS UPDATED',`${cid} · ${s}`);renderTop();viewCases();}
+function addEvidenceToCase(cid){const c=state.cases.find(x=>x.id===cid);if(!c)return;const type=document.getElementById('evType').value;const label=(document.getElementById('evLabel').value||'').trim();if(!label){toast('warn','NO DESCRIPTION','Add an evidence description first');return;}c.evidence=c.evidence||[];c.evidence.unshift({t:new Date(),type,label,by:state.user.name});c.timeline.push({t:new Date(),txt:`Evidence attached: ${type} — ${label}`,who:state.user.name});toast('ok','EVIDENCE ATTACHED',`${type} added to ${cid}`);refreshCaseDetail(cid);}
+function addNoteToCase(cid){const c=state.cases.find(x=>x.id===cid);if(!c)return;const txt=(document.getElementById('caseNoteTxt').value||'').trim();if(!txt){toast('warn','EMPTY NOTE','Write a note first');return;}c.notes=c.notes||[];c.notes.unshift({t:new Date(),who:state.user.name+' ('+state.user.role+')',txt});c.timeline.push({t:new Date(),txt:'Analyst note added',who:state.user.name});toast('ok','NOTE SAVED','');refreshCaseDetail(cid);}
+
+/* ============================================================
+   MITRE ATT&CK MATRIX
+   ============================================================ */
+function viewMitre(){
+  // heat count per technique
+  const heat={};state.alerts.forEach(a=>a.mitre.forEach(t=>heat[t]=(heat[t]||0)+1));
+  const max=Math.max(1,...Object.values(heat));
+  document.getElementById('main').innerHTML=`
+    <div class="view-head"><div><div class="crumb">Threat Mapping</div><h1>⊞ MITRE ATT&CK Matrix</h1>
+      <div class="sub">Enterprise tactics × techniques — heat reflects observed alerts this session</div></div>
+      <div class="flex gap center"><span class="tag" style="color:var(--crit);border-color:var(--crit)">hot</span><span class="tag" style="color:var(--high)">warm</span><span class="tag">observed</span></div></div>
+    <div class="card glow"><div class="mitre-grid">
+    ${MITRE.map(col=>`<div class="mitre-col">
+      <div class="tac">${col.tac}</div>
+      ${col.techs.map(t=>{const c=heat[t[0]]||0;const cls=c>=max*0.66?'hot':c>=max*0.33?'warm':c>0?'':'';
+        return `<div class="mitre-tech ${cls}" title="${c} alerts">${t[1]}<span class="tid">${t[0]}${c?' · '+c+' obs':''}</span></div>`;}).join('')}
+    </div>`).join('')}
+    </div></div>
+    <div class="grid mt" style="grid-template-columns:1fr 1fr">
+      <div class="card"><h3>Top Techniques Observed</h3><div class="ch-sub">most-mapped across alerts</div>
+        ${Object.entries(heat).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([t,c])=>`<div class="flex between" style="padding:6px 0;border-bottom:1px solid var(--line)"><span><span class="tag mitre">${t}</span> ${mitreName(t)}</span><b class="mono" style="color:var(--cyan)">${c}</b></div>`).join('')||'<div class="empty-hint">No techniques mapped yet.</div>'}
+      </div>
+      <div class="card"><h3>Tactic Coverage</h3><div class="ch-sub">tactics with active detections</div><div class="chart-h sm"><canvas id="cTac"></canvas></div></div>
+    </div>`;
+  // tactic chart
+  const tacCount=MITRE.map(col=>col.techs.reduce((s,t)=>s+(heat[t[0]]||0),0));
+  charts.tac=new Chart(document.getElementById('cTac'),{type:'radar',
+    data:{labels:MITRE.map(m=>m.tac.split(' ')[0]),datasets:[{data:tacCount,borderColor:'#22d3ee',backgroundColor:'rgba(34,211,238,.18)',pointBackgroundColor:'#34e0a1',borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{r:{grid:{color:GRID},angleLines:{color:GRID},ticks:{display:false},pointLabels:{color:TICK,font:{size:9}}}}}});
+}
+
+/* ============================================================
+   THREAT INTELLIGENCE
+   ============================================================ */
+function viewIntel(){
+  // aggregate IOCs
+  const ips={},doms={},hashes={};
+  state.alerts.forEach(a=>{a.iocs.ip.forEach(i=>ips[i]=(ips[i]||0)+1);a.iocs.domain.forEach(d=>doms[d]=(doms[d]||0)+1);a.iocs.hash.forEach(h=>hashes[h]=(hashes[h]||0)+1);});
+  const topIp=Object.entries(ips).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const topDom=Object.entries(doms).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const malicious=topIp.filter(([i])=>intelFor(i).verdict==='Malicious').length;
+  document.getElementById('main').innerHTML=`
+    <div class="view-head"><div><div class="crumb">Tier 2 · Intelligence</div><h1>◍ Threat Intelligence</h1>
+      <div class="sub">Aggregated indicators enriched against simulated threat feeds</div></div></div>
+    <div class="grid kpi-row mb">
+      ${kpi('Unique IPs',Object.keys(ips).length,malicious+' flagged malicious',malicious?'down':'up','◍')}
+      ${kpi('Unique Domains',Object.keys(doms).length,'tracked','','🌐')}
+      ${kpi('File Hashes',Object.keys(hashes).length,'submitted to sandbox','','🧬')}
+      ${kpi('Feed Sources',rnd(9,18),'integrated','up','📡')}
+    </div>
+    <div class="card glow mb"><h3>🔎 Threat Intelligence Lookup</h3>
+      <div class="ch-sub">query an indicator (IP / domain / hash) against VirusTotal · AbuseIPDB · AlienVault OTX</div>
+      <div class="flex gap" style="margin:8px 0 6px"><input class="txt-in" id="tiInput" style="flex:1" placeholder="e.g. 159.215.37.240  or  secure-update-login.com" value="${topIp[0]?topIp[0][0]:''}"><button class="btn primary" onclick="tiLookup()">▸ Lookup</button></div>
+      <div class="flex gap wrap" style="margin-bottom:10px">${topIp.slice(0,5).map(([i])=>`<span class="tag" style="cursor:pointer" onclick="document.getElementById('tiInput').value='${i}';tiLookup()">${i}</span>`).join('')}</div>
+      <div id="tiResult"></div>
+    </div>
+    <div class="grid" style="grid-template-columns:1fr 1fr">
+      <div class="card"><h3>Top Malicious IPs</h3><div class="ch-sub">by alert frequency · enriched verdict · click to look up</div>
+        <div class="tbl-wrap"><table><thead><tr><th>Indicator</th><th>Hits</th><th>Verdict</th><th>Conf.</th><th>Geo</th><th>Malware</th></tr></thead><tbody>
+        ${topIp.map(([i,c])=>{const t=intelFor(i);const col=t.verdict==='Malicious'?'var(--crit)':t.verdict==='Suspicious'?'var(--high)':'var(--txt-dim)';return `<tr style="cursor:pointer" onclick="document.getElementById('tiInput').value='${i}';tiLookup();window.scrollTo({top:0,behavior:'smooth'})"><td class="mono">${i}</td><td class="mono">${c}</td><td><b style="color:${col}">${t.verdict}</b></td><td class="mono">${t.confidence}%</td><td class="mono">${t.country}</td><td>${t.family}</td></tr>`;}).join('')||'<tr><td colspan="6" class="empty-hint">No IPs</td></tr>'}
+        </tbody></table></div></div>
+      <div class="card"><h3>Top Suspicious Domains</h3><div class="ch-sub">enriched against reputation feeds · click to look up</div>
+        <div class="tbl-wrap"><table><thead><tr><th>Domain</th><th>Hits</th><th>Verdict</th><th>Risk</th></tr></thead><tbody>
+        ${topDom.map(([d,c])=>{const t=intelFor(d);const col=t.verdict==='Malicious'?'var(--crit)':t.verdict==='Suspicious'?'var(--high)':'var(--txt-dim)';return `<tr style="cursor:pointer" onclick="document.getElementById('tiInput').value='${d}';tiLookup();window.scrollTo({top:0,behavior:'smooth'})"><td class="mono" style="font-size:11px">${d}</td><td class="mono">${c}</td><td><b style="color:${col}">${t.verdict}</b></td><td class="mono">${t.score}/100</td></tr>`;}).join('')||'<tr><td colspan="4" class="empty-hint">No domains</td></tr>'}
+        </tbody></table></div></div>
+    </div>`;
+  if(topIp[0]) tiLookup();
+}
+function tiVerdictColor(v){return v==='Malicious'?'var(--crit)':v==='Suspicious'?'var(--high)':v==='Clean'?'var(--green)':'var(--txt-dim)';}
+function tiLookup(){
+  const el=document.getElementById('tiResult'); if(!el) return;
+  const ind=(document.getElementById('tiInput').value||'').trim();
+  if(!ind){el.innerHTML='<div class="empty-hint">Enter an indicator to look up.</div>';return;}
+  const t=intelFor(ind);
+  const p=t.providers;
+  const overall=tiVerdictColor(t.verdict);
+  el.innerHTML=`
+    <div class="ti-summary" style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:12px;border:1px solid var(--line2);border-radius:10px;background:var(--bg);margin-bottom:12px">
+      <div style="flex:1;min-width:200px"><div class="nh">INDICATOR</div><div class="mono" style="font-size:15px;color:var(--txt)">${ind}</div></div>
+      <div><div class="nh">REPUTATION</div><div style="font-size:15px;font-weight:700;color:${overall}">${t.verdict}</div></div>
+      <div><div class="nh">CONFIDENCE</div><div class="mono" style="font-size:15px;color:${overall}">${t.confidence}%</div></div>
+      <div><div class="nh">COUNTRY</div><div style="font-size:15px">${t.countryFull} (${t.country})</div></div>
+      <div><div class="nh">MALWARE FAMILY</div><div style="font-size:15px">${t.family}</div></div>
+      <div><div class="nh">FIRST SEEN</div><div class="mono" style="font-size:15px">${t.firstSeen}</div></div>
+    </div>
+    <div class="grid" style="grid-template-columns:repeat(3,1fr);gap:10px">
+      <div class="card" style="margin:0"><div class="flex between center"><b>🛡️ VirusTotal</b><span class="tag" style="color:${tiVerdictColor(p.virustotal.verdict)};border-color:${tiVerdictColor(p.virustotal.verdict)}">${p.virustotal.verdict}</span></div>
+        <div class="mono" style="font-size:22px;color:${tiVerdictColor(p.virustotal.verdict)};margin:6px 0">${p.virustotal.detections}<span style="font-size:13px;color:var(--txt-dim)">/${p.virustotal.total}</span></div>
+        <div class="nh">engines flagged this indicator</div></div>
+      <div class="card" style="margin:0"><div class="flex between center"><b>🚫 AbuseIPDB</b><span class="tag" style="color:${tiVerdictColor(p.abuseipdb.verdict)};border-color:${tiVerdictColor(p.abuseipdb.verdict)}">${p.abuseipdb.verdict}</span></div>
+        <div class="mono" style="font-size:22px;color:${tiVerdictColor(p.abuseipdb.verdict)};margin:6px 0">${p.abuseipdb.confidence}%</div>
+        <div class="nh">abuse confidence · ${p.abuseipdb.reports} reports</div></div>
+      <div class="card" style="margin:0"><div class="flex between center"><b>👽 AlienVault OTX</b><span class="tag" style="color:${tiVerdictColor(p.otx.verdict)};border-color:${tiVerdictColor(p.otx.verdict)}">${p.otx.verdict}</span></div>
+        <div class="mono" style="font-size:22px;color:${tiVerdictColor(p.otx.verdict)};margin:6px 0">${p.otx.pulses}</div>
+        <div class="nh">threat pulses referencing this IOC</div></div>
+    </div>
+    <div class="nh" style="margin-top:10px;font-style:italic">Simulated enrichment for demonstration — wire these cards to live VirusTotal / AbuseIPDB / OTX APIs via the backend to use real feeds.</div>`;
+}
+
+/* ============================================================
+   L3 · THREAT HUNTING
+   ============================================================ */
+const HUNT_PRESETS=[
+  {q:'sev=Critical AND source=EDR',label:'Critical EDR detections'},
+  {q:'cat="C2 Traffic"',label:'Beaconing / C2'},
+  {q:'cat="Privilege Escalation"',label:'Priv-esc attempts'},
+  {q:'user=admin OR user=root',label:'Privileged account activity'},
+  {q:'cat="Data Exfiltration"',label:'Exfil candidates'},
+];
+function viewHunt(){
+  document.getElementById('main').innerHTML=`
+    <div class="view-head"><div><div class="crumb">Tier 3 · Proactive Defense</div><h1>⌕ Threat Hunting</h1>
+      <div class="sub">Hypothesis-driven hunts and advanced search across all telemetry</div></div></div>
+    <div class="card glow mb"><h3>🔎 Advanced Hunt Query</h3><div class="ch-sub">field operators: sev= source= cat= user= host= ip=  · combine with AND / OR</div>
+      <div class="flex gap" style="margin-bottom:10px"><input class="txt-in" id="huntQ" style="flex:1" placeholder='e.g. sev=Critical AND source=EDR' value='sev=Critical'><button class="btn primary" onclick="runHunt()">▸ Run Hunt</button></div>
+      <div class="flex gap wrap">${HUNT_PRESETS.map(p=>`<span class="tag" style="cursor:pointer" onclick="document.getElementById('huntQ').value='${p.q.replace(/'/g,"\\'")}';runHunt()">${p.label}</span>`).join('')}</div>
+    </div>
+    <div class="card"><h3>Hunt Results <span id="huntCount" class="pill st-Acknowledged" style="margin-left:8px">—</span></h3><div class="ch-sub" id="huntMeta">enter a query and run</div>
+      <div class="tbl-wrap"><table><thead><tr><th>ID</th><th>Time</th><th>Sev</th><th>Source</th><th>Cat</th><th>Host</th><th>User</th><th>Title</th></tr></thead><tbody id="huntBody"><tr><td colspan="8" class="empty-hint">No hunt executed yet</td></tr></tbody></table></div>
+    </div>
+    <div class="grid mt" style="grid-template-columns:1fr 1fr">
+      <div class="card"><h3>🎯 Active Hunt Hypotheses</h3><div class="ch-sub">structured hunts in progress</div>
+        ${state.hunts.length?state.hunts.map(h=>`<div class="note-item"><div class="nh">${fmtDate(h.t)} · ${h.matches} matches</div><b style="color:var(--cyan)">${h.q}</b> — ${h.note}</div>`).join(''):'<div class="empty-hint">No saved hunts. Run a query and save it as a hypothesis.</div>'}
+      </div>
+      <div class="card"><h3>📈 Escalated Cases for Hunting</h3><div class="ch-sub">L2 hand-offs requiring deep hunt</div>
+        ${state.cases.filter(c=>c.status==='Escalated').length?state.cases.filter(c=>c.status==='Escalated').map(c=>caseRow(c)).join(''):'<div class="empty-hint">No escalated cases.</div>'}
+      </div>
+    </div>`;
+}
+function parseHunt(q){
+  // split on AND/OR (simple: treat all as AND unless OR present), each token field=value
+  const isOr=/\bOR\b/i.test(q);
+  const toks=q.split(/\bAND\b|\bOR\b/i).map(s=>s.trim()).filter(Boolean);
+  const preds=toks.map(t=>{const m=t.match(/(\w+)\s*=\s*"?([^"]+)"?/);if(!m)return null;return {f:m[1].toLowerCase(),v:m[2].trim().toLowerCase()};}).filter(Boolean);
+  return {isOr,preds};
+}
+function runHunt(){
+  const q=document.getElementById('huntQ').value;
+  const {isOr,preds}=parseHunt(q);
+  const map={sev:'sev',source:'source',cat:'cat',user:'user',host:'host',ip:'srcIp'};
+  const res=state.alerts.filter(a=>{
+    const tests=preds.map(p=>{const f=map[p.f];if(!f)return true;return String(a[f]).toLowerCase().includes(p.v);});
+    if(!tests.length)return true;
+    return isOr?tests.some(Boolean):tests.every(Boolean);
+  });
+  document.getElementById('huntCount').textContent=res.length+' hits';
+  document.getElementById('huntMeta').innerHTML=`query: <span class="mono" style="color:var(--green)">${q}</span> · scanned ${state.alerts.length} events · <a style="color:var(--cyan);cursor:pointer" onclick="saveHunt('${q.replace(/'/g,"")}',${res.length})">save as hypothesis</a>`;
+  document.getElementById('huntBody').innerHTML=res.slice(0,80).map(a=>`<tr onclick="go('invest');setTimeout(()=>openInvest('${a.id}'),50)"><td class="t-id">${a.id}</td><td class="mono" style="font-size:11px">${fmtTime(a.ts)}</td><td>${sevPill(a.sev)}</td><td class="mono" style="font-size:11px">${a.source}</td><td>${a.cat}</td><td class="mono">${a.host}</td><td class="mono">${a.user}</td><td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.title}</td></tr>`).join('')||'<tr><td colspan="8" class="empty-hint">No matches</td></tr>';
+}
+function saveHunt(q,n){
+  const note=prompt('Hunt hypothesis note:','Investigating possible '+pick(['lateral movement','C2 beaconing','credential abuse','data staging']));
+  if(note===null)return;
+  state.hunts.unshift({t:new Date(),q,matches:n,note});
+  toast('ok','HUNT SAVED','Hypothesis added to active hunts');viewHunt();
+}
+
+/* ============================================================
+   L3 · DETECTION RULES (Sigma / YARA)
+   ============================================================ */
+const SIGMA_TPL=`title: Suspicious PowerShell Encoded Command
+status: experimental
+logsource:
+  product: windows
+  category: process_creation
+detection:
+  selection:
+    Image|endswith: '\\powershell.exe'
+    CommandLine|contains:
+      - '-enc'
+      - '-EncodedCommand'
+  condition: selection
+level: high
+tags:
+  - attack.execution
+  - attack.t1059.001`;
+const YARA_TPL=`rule SOCVerse_Generic_Loader {
+  meta:
+    author = "L3 Hunt Team"
+    description = "Detects generic staged loader"
+  strings:
+    $a = "VirtualAlloc" ascii
+    $b = "WinHttpConnect" ascii
+    $c = { 4D 5A 90 00 03 00 00 00 }
+  condition:
+    uint16(0) == 0x5A4D and 2 of ($a,$b,$c)
+}`;
+function viewDetect(){
+  document.getElementById('main').innerHTML=`
+    <div class="view-head"><div><div class="crumb">Tier 3 · Detection Engineering</div><h1>⊟ Detection Rules</h1>
+      <div class="sub">Author custom detections and simulate Sigma / YARA matches against live telemetry</div></div></div>
+    <div class="grid" style="grid-template-columns:1fr 1fr">
+      <div class="card glow"><h3>Σ Sigma Rule Editor</h3><div class="ch-sub">log-based detection · simulated against alert stream</div>
+        <div class="code-box mb"><div class="cb-head"><span class="dotr"></span><span class="doty"></span><span class="dotg"></span><span style="margin-left:8px">sigma_rule.yml</span></div><textarea id="sigmaTxt">${SIGMA_TPL}</textarea></div>
+        <div class="btn-row"><button class="btn primary" onclick="simSigma()">▸ Simulate Detection</button><button class="btn" onclick="document.getElementById('sigmaTxt').value=SIGMA_TPL">↺ Reset</button></div>
+        <div id="sigmaOut" class="mt"></div>
+      </div>
+      <div class="card glow"><h3>Y YARA Rule Editor</h3><div class="ch-sub">file/memory pattern matching · simulated against sandbox hashes</div>
+        <div class="code-box mb"><div class="cb-head"><span class="dotr"></span><span class="doty"></span><span class="dotg"></span><span style="margin-left:8px">rule.yar</span></div><textarea id="yaraTxt">${YARA_TPL}</textarea></div>
+        <div class="btn-row"><button class="btn primary" onclick="simYara()">▸ Simulate Scan</button><button class="btn" onclick="document.getElementById('yaraTxt').value=YARA_TPL">↺ Reset</button></div>
+        <div id="yaraOut" class="mt"></div>
+      </div>
+    </div>
+    <div class="card mt"><h3>Deployed Custom Detections</h3><div class="ch-sub">rules promoted to production this session</div>
+      ${state.detections.length?`<div class="tbl-wrap"><table><thead><tr><th>Rule</th><th>Type</th><th>Level</th><th>Sim Matches</th><th>Deployed</th></tr></thead><tbody>
+        ${state.detections.map(d=>`<tr><td>${d.title}</td><td><span class="tag">${d.type}</span></td><td>${sevPill(d.level)}</td><td class="mono">${d.matches}</td><td class="mono" style="font-size:11px">${fmtTime(d.t)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty-hint">No custom detections deployed. Simulate a rule, then deploy it.</div>'}
+    </div>`;
+}
+function simSigma(){
+  const txt=document.getElementById('sigmaTxt').value;
+  const title=(txt.match(/title:\s*(.+)/)||[])[1]||'Custom Sigma Rule';
+  const level=/level:\s*critical/i.test(txt)?'Critical':/level:\s*high/i.test(txt)?'High':/level:\s*medium/i.test(txt)?'Medium':'Low';
+  // pull contains/endswith keywords
+  const kws=[...txt.matchAll(/-\s*'([^']+)'/g)].map(m=>m[1].toLowerCase());
+  const matches=state.alerts.filter(a=>{const blob=(a.raw+a.title).toLowerCase();return kws.length?kws.some(k=>blob.includes(k.replace(/[\\]/g,''))):a.source==='Win Event Log'||a.source==='EDR';});
+  document.getElementById('sigmaOut').innerHTML=`<div class="card" style="background:var(--bg);padding:12px">
+    <div class="flex between center"><b style="color:var(--green)">✓ Compiled OK</b><span class="tag">${level}</span></div>
+    <div class="ch-sub" style="margin-top:6px">Matched <b style="color:var(--cyan)">${matches.length}</b> events · keywords: ${kws.map(k=>`<span class="tag">${k}</span>`).join('')||'(default selection)'}</div>
+    ${matches.slice(0,4).map(m=>`<div class="note-item" style="margin-top:6px"><div class="nh">${m.id} · ${m.host}</div>${m.title}</div>`).join('')}
+    <button class="btn primary sm mt" onclick="deployRule('${title.replace(/'/g,"")}','Sigma','${level}',${matches.length})">⬆ Deploy to Production</button></div>`;
+  toast('ok','SIGMA SIMULATED',`${matches.length} historical matches`);
+}
+function simYara(){
+  const txt=document.getElementById('yaraTxt').value;
+  const title=(txt.match(/rule\s+(\w+)/)||[])[1]||'Custom_YARA';
+  const withHash=state.alerts.filter(a=>a.hash);
+  const matches=withHash.filter(a=>intelFor(a.hash).verdict!=='Unknown').slice(0,rnd(2,8));
+  document.getElementById('yaraOut').innerHTML=`<div class="card" style="background:var(--bg);padding:12px">
+    <div class="flex between center"><b style="color:var(--green)">✓ Rule valid</b><span class="tag">${matches.length} samples flagged</span></div>
+    <div class="ch-sub" style="margin-top:6px">Scanned ${withHash.length} sandbox artifacts</div>
+    ${matches.slice(0,4).map(m=>`<div class="note-item" style="margin-top:6px"><div class="nh">${m.id} · ${intelFor(m.hash).family}</div><span class="mono" style="font-size:10.5px">${m.hash.slice(0,40)}…</span></div>`).join('')}
+    <button class="btn primary sm mt" onclick="deployRule('${title}','YARA','High',${matches.length})">⬆ Deploy to Production</button></div>`;
+  toast('ok','YARA SIMULATED',`${matches.length} samples matched`);
+}
+function deployRule(title,type,level,matches){
+  state.detections.unshift({title,type,level,matches,t:new Date()});
+  toast('ok','RULE DEPLOYED',`${type} rule "${title}" is live`);log(`${type} rule deployed: ${title}`);viewDetect();
+}
+
+/* ============================================================
+   L3 · CONTAINMENT & RESPONSE
+   ============================================================ */
+function viewRespond(){
+  const targets=state.alerts.filter(a=>['Escalated','InProgress'].includes(a.status)||a.sev==='Critical');
+  document.getElementById('main').innerHTML=`
+    <div class="view-head"><div><div class="crumb">Tier 3 · Incident Response</div><h1>⛒ Containment & Response</h1>
+      <div class="sub">Execute response actions, then generate the root-cause analysis report</div></div></div>
+    <div class="grid kpi-row mb">
+      ${kpi('Containment Actions',state.metrics.contained,'executed this session','up','⛒')}
+      ${kpi('Hosts Isolated',state.respActions?state.respActions.iso:0,'quarantined','','🖥')}
+      ${kpi('IPs Blocked',state.respActions?state.respActions.ip:0,'at perimeter','','🚫')}
+      ${kpi('Accounts Disabled',state.respActions?state.respActions.usr:0,'locked out','','👤')}
+    </div>
+    <div class="split">
+      <div class="card glow"><h3>Response Targets</h3><div class="ch-sub">escalated / critical alerts requiring action</div>
+        <div class="tbl-wrap"><table><thead><tr><th>ID</th><th>Sev</th><th>Host</th><th>User</th><th>Src IP</th><th>Actions</th></tr></thead><tbody>
+        ${targets.slice(0,40).map(a=>`<tr><td class="t-id">${a.id}</td><td>${sevPill(a.sev)}</td><td class="mono">${a.host}</td><td class="mono">${a.user}</td><td class="mono">${a.srcIp}</td>
+          <td><div class="btn-row"><button class="btn sm danger" onclick="contain('${a.id}','iso')">🖥 Isolate</button><button class="btn sm danger" onclick="contain('${a.id}','ip')">🚫 Block IP</button><button class="btn sm warn" onclick="contain('${a.id}','usr')">👤 Disable</button></div></td></tr>`).join('')||'<tr><td colspan="6" class="empty-hint">No active response targets.</td></tr>'}
+        </tbody></table></div>
+      </div>
+      <div class="card"><h3>Response Log</h3><div class="ch-sub">eradication & recovery actions</div>
+        <div class="feed" id="respLog" style="height:420px">${(state.respLog||[]).map(r=>`<div class="feed-row"><span class="ts">${fmtTime(r.t)}</span><span class="msg">${r.txt}</span></div>`).join('')||'<div class="empty-hint">No actions taken yet.</div>'}</div>
+        <button class="btn primary mt" style="width:100%" onclick="rcaModal()">📄 Generate Root-Cause Analysis</button>
+      </div>
+    </div>`;
+}
+state.respActions={iso:0,ip:0,usr:0};state.respLog=[];
+function contain(id,type){
+  const a=state.alerts.find(x=>x.id===id);
+  let msg='';
+  if(type==='iso'){state.respActions.iso++;msg=`🖥 Host ${a.host} ISOLATED from network (EDR quarantine)`;}
+  if(type==='ip'){state.respActions.ip++;msg=`🚫 IP ${a.srcIp} BLOCKED at firewall/perimeter`;}
+  if(type==='usr'){state.respActions.usr++;msg=`👤 Account ${a.user} DISABLED in directory`;}
+  state.metrics.contained++;
+  a.status='Contained';a.stage=Math.max(a.stage,6);
+  // record MTTR (simulate)
+  const mttr=a.detectMin+Math.random()*30+5;state.metrics.mttrSum+=mttr;state.metrics.mttrN++;state.metrics.resolved++;
+  a.timeline.push({t:new Date(),txt:msg,who:state.user.name});
+  state.respLog.unshift({t:new Date(),txt:`[${id}] ${msg}`});
+  // update linked case
+  const c=state.cases.find(x=>x.anchor===id);if(c){c.status='Contained';c.stage=6;}
+  toast('crit','CONTAINMENT EXECUTED',msg);log(msg);
+  renderTop();renderNav();viewRespond();
+}
+function rcaModal(){
+  const contained=state.alerts.filter(a=>a.status==='Contained');
+  if(!contained.length){toast('warn','NO INCIDENTS','Execute containment actions first');return;}
+  const a=contained[0];const intel=intelFor(a.srcIp);
+  openModal('Root-Cause Analysis — '+a.id,`
+    <div class="kv mb">
+      <div class="k">Incident</div><div class="v">${a.cat} on ${a.host}</div>
+      <div class="k">Severity</div><div class="v">${a.sev}</div>
+      <div class="k">Initial Vector</div><div class="v">${a.source} · ${a.srcIp}</div>
+      <div class="k">ATT&CK</div><div class="v">${a.mitre.join(', ')}</div></div>
+    <div class="section-divider">Summary</div>
+    <div class="note-item">A ${a.cat.toLowerCase()} incident originating from ${a.srcIp} (${intel.country}, verdict ${intel.verdict}, family ${intel.family}) impacted ${a.host} via the ${a.user} account. The activity was detected by ${a.source}, validated by L2, and contained by L3 response actions.</div>
+    <div class="section-divider">Root Cause</div>
+    <div class="note-item">${pick(['Unpatched externally-facing service permitted initial access.','User executed a weaponized attachment delivered via phishing.','Weak/compromised credentials enabled brute-force authentication.','Excessive account privileges allowed lateral movement.'])}</div>
+    <div class="section-divider">Remediation & Lessons Learned</div>
+    <div class="note-item">Eradication: removed persistence, reset affected credentials, restored ${a.host} from clean image. Recovery: validated services, monitored for re-infection. Lessons: ${pick(['enforce MFA on all remote access','accelerate patch SLA for internet-facing assets','tighten egress filtering and DNS monitoring','implement least-privilege review cadence'])}.</div>
+    <button class="btn primary mt" onclick="closeModal();state.alerts.filter(x=>x.status==='Contained').forEach(x=>{x.status='Closed';x.stage=9;});state.cases.forEach(c=>{if(c.status==='Contained'){c.status='Closed';c.stage=9;}});toast('ok','RCA FILED','Incident(s) closed · lifecycle complete');renderTop();renderNav();viewRespond();">✓ File Report & Close Incident</button>`);
+}
+
+/* ============================================================
+   SIEM SIMULATION — Splunk / QRadar / Microsoft Sentinel
+   ============================================================ */
+const siemState={tab:'splunk', q:''};
+const SIEM_PLATFORMS={
+  splunk:{name:'Splunk Enterprise Security',cls:'siem-splunk',accent:'#65a30d',lang:'SPL',
+    rules:['Brute Force - Multiple Failed Logins','Malware Beacon Detection','Privilege Escalation Activity','Suspicious DNS Query Volume','Data Exfiltration - Large Upload']},
+  qradar:{name:'IBM QRadar SIEM',cls:'siem-qradar',accent:'#0f62fe',lang:'AQL',
+    rules:['Excessive Authentication Failures','Botnet C2 Communication','Anomalous Outbound Flow','Local Privilege Escalation','Ransomware File Activity']},
+  sentinel:{name:'Microsoft Sentinel',cls:'siem-sentinel',accent:'#0078d4',lang:'KQL',
+    rules:['Sign-in from Anonymous IP','Mass File Encryption Detected','Impossible Travel Activity','Suspicious PowerShell Execution','Exfiltration Over Web Service']}};
+function siemQueryText(tab){
+  if(tab==='splunk') return `<span class="cmd">index</span>=security <span class="cmd">sourcetype</span>=* `+(siemState.q?`<span class="str">"${esc(siemState.q)}"</span> `:'')+`| <span class="fn">stats</span> count <span class="cmd">by</span> source, severity | <span class="fn">sort</span> -count`;
+  if(tab==='qradar') return `<span class="fn">SELECT</span> sourceip, category, <span class="fn">COUNT</span>(*) <span class="fn">FROM</span> events <span class="fn">WHERE</span> severity &gt;= 7 `+(siemState.q?`<span class="cmd">AND</span> payload <span class="cmd">ILIKE</span> <span class="str">'%${esc(siemState.q)}%'</span> `:'')+`<span class="fn">GROUP BY</span> sourceip <span class="fn">LAST</span> 24 HOURS`;
+  return `SecurityEvent<br>| <span class="cmd">where</span> TimeGenerated &gt; ago(24h)`+(siemState.q?`<br>| <span class="cmd">where</span> Activity <span class="cmd">contains</span> <span class="str">"${esc(siemState.q)}"</span>`:'')+`<br>| <span class="fn">summarize</span> Count=count() <span class="cmd">by</span> Source, Level<br>| <span class="fn">order by</span> Count <span class="cmd">desc</span>`;
+}
+function esc(s){return (s||'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));}
+function siemEvents(){
+  const q=siemState.q.toLowerCase();
+  return state.alerts.filter(a=>!q||(a.title+a.source+a.host+a.srcIp+a.cat+a.user).toLowerCase().includes(q));
+}
+function viewSiem(){
+  const p=SIEM_PLATFORMS[siemState.tab];
+  const ev=siemEvents();
+  const ips=ev.reduce((n,a)=>n+(a.iocs.ip?a.iocs.ip.length:0),0);
+  document.getElementById('main').innerHTML=`
+    <div class="view-head"><div><div class="crumb">Platform · SIEM</div><h1>▦ SIEM Console</h1>
+      <div class="sub">Unified log ingestion, correlation rules & search across simulated enterprise SIEM platforms</div></div></div>
+    <div class="tabs">
+      <div class="tab ${siemState.tab==='splunk'?'active':''}" onclick="siemState.tab='splunk';viewSiem()">Splunk ES</div>
+      <div class="tab ${siemState.tab==='qradar'?'active':''}" onclick="siemState.tab='qradar';viewSiem()">IBM QRadar</div>
+      <div class="tab ${siemState.tab==='sentinel'?'active':''}" onclick="siemState.tab='sentinel';viewSiem()">MS Sentinel</div>
+    </div>
+    <div class="card ${p.cls} mb"><div class="flex between center">
+      <div><h3 style="margin:0">${p.name}</h3><div class="ch-sub" style="margin:2px 0 0">${p.lang} query interface · live ingestion pipeline</div></div>
+      <span class="pill st-Acknowledged">● INGESTING</span></div></div>
+    <div class="grid kpi-row mb">
+      ${kpi('Events Indexed',ev.length,'across '+SOURCES.length+' sources','up','▤')}
+      ${kpi('Ingestion Rate',(2.4+Math.random()*1.8).toFixed(1)+' k/s','normalized','up','◈')}
+      ${kpi('Correlation Rules',p.rules.length,'enabled','','⎇')}
+      ${kpi('Notable Events',ev.filter(a=>['Critical','High'].includes(a.sev)).length,'sev high+','down','⚠')}
+      ${kpi('Unique Indicators',ips,'IPs observed','','◍')}
+    </div>
+    <div class="card mb"><h3>${p.lang} Search</h3><div class="ch-sub">enter a term to filter the indexed event stream</div>
+      <div class="flex gap" style="margin:6px 0 12px"><input class="txt-in" style="flex:1" placeholder="search term (host, ip, category, user…)" value="${esc(siemState.q)}" oninput="siemState.q=this.value;refreshSiem()"><button class="btn primary" onclick="refreshSiem()">▸ Search</button></div>
+      <div class="spl-query" id="siemQ">${siemQueryText(siemState.tab)}</div></div>
+    <div class="split">
+      <div class="card glow"><h3>Indexed Events <span id="siemCount" class="tag">${ev.length}</span></h3><div class="ch-sub">matching the current search</div>
+        <div class="tbl-wrap" style="max-height:440px;overflow:auto"><table><thead><tr><th>Time</th><th>Source</th><th>Sev</th><th>Host</th><th>Src IP</th><th>Event</th></tr></thead>
+        <tbody id="siemRows">${siemRows(ev)}</tbody></table></div></div>
+      <div class="card"><h3>⎇ Active Correlation Rules</h3><div class="ch-sub">${p.name}</div>
+        ${p.rules.map(r=>{const fired=rnd(0,18);return `<div class="note-item" style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+          <div><div style="font-size:12.5px;color:var(--txt)">${r}</div><div class="nh" style="margin-top:2px">${pick(['real-time','5-min window','15-min window'])} · threshold ${rnd(3,10)}</div></div>
+          <span class="tag" style="color:${fired>8?'var(--crit)':'var(--green)'}">${fired} fired</span></div>`;}).join('')}
+        <div class="section-divider mt">Log Ingestion Pipeline</div>
+        ${SOURCES.map(s=>{const c=state.alerts.filter(a=>a.source===s).length;return `<div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11.5px;padding:3px 0;color:var(--txt-dim)"><span>${s}</span><span style="color:var(--cyan)">${c} events</span></div>`;}).join('')}
+      </div>
+    </div>`;
+}
+function siemRows(ev){
+  return ev.slice(0,80).map(a=>`<tr><td class="mono" style="font-size:11px">${fmtTime(a.ts)}</td><td class="mono" style="font-size:11px">${a.source}</td><td>${sevPill(a.sev)}</td><td class="mono">${a.host}</td><td class="mono">${a.srcIp}</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.title}</td></tr>`).join('')||'<tr><td colspan="6" class="empty-hint">No events match this search.</td></tr>';
+}
+function refreshSiem(){
+  const q=document.getElementById('siemQ'); if(q) q.innerHTML=siemQueryText(siemState.tab);
+  const ev=siemEvents();
+  const rows=document.getElementById('siemRows'); if(rows) rows.innerHTML=siemRows(ev);
+  const cnt=document.getElementById('siemCount'); if(cnt) cnt.textContent=ev.length;
+}
+
+/* ============================================================
+   ATTACK SIMULATOR
+   ============================================================ */
+state.simLog=[];
+function viewAttacks(){
+  const keys=Object.keys(SCENARIOS);
+  document.getElementById('main').innerHTML=`
+    <div class="view-head"><div><div class="crumb">Platform · Adversary Emulation</div><h1>⚡ Attack Simulator</h1>
+      <div class="sub">Launch correlated attack scenarios to exercise the full L1→L2→L3 detection & response pipeline</div></div></div>
+    <div class="card mb" style="background:linear-gradient(90deg,rgba(255,77,109,.10),transparent);border-color:rgba(255,77,109,.3)">
+      <div class="flex between center"><div><h3 style="margin:0">⚠ Purple-Team Range</h3>
+      <div class="ch-sub" style="margin:2px 0 0">Each simulation injects a chain of correlated alerts sharing IOCs (source IP, host, user, domain) across multiple telemetry sources — exactly as a real intrusion would appear in the SIEM.</div></div>
+      <span class="pill st-New">SAFE · SIMULATED</span></div></div>
+    <div class="grid" style="grid-template-columns:repeat(4,1fr);gap:14px">
+      ${keys.map(k=>{const s=SCENARIOS[k];return `<div class="atk-card">
+        <div class="atk-ic">${s.icon}</div><h4>${s.name}</h4><p>${s.desc}</p>
+        <div class="flex gap wrap" style="margin-bottom:10px">${sevPill(s.sev)}${s.mitre.map(m=>`<span class="tag mitre">${m}</span>`).join('')}</div>
+        <div class="nh" style="margin-bottom:10px">kill-chain: ${s.steps.join(' → ')}</div>
+        <button class="btn danger" style="width:100%" onclick="launchAttack('${k}')">▶ Launch Simulation</button></div>`;}).join('')}
+    </div>
+    <div class="card mt"><h3>⌗ Simulation Activity Log</h3><div class="ch-sub">scenarios launched this session</div>
+      <div class="feed" id="simLog" style="height:200px">${renderSimLog()}</div>
+      <button class="btn mt" onclick="launchAttack(pick(Object.keys(SCENARIOS)))">🎲 Launch Random Attack</button></div>`;
+}
+function renderSimLog(){
+  return state.simLog.length?state.simLog.map(r=>`<div class="feed-row"><span class="ts">${fmtTime(r.t)}</span><span class="src">${r.icon}</span><span class="msg">${r.txt}</span></div>`).join(''):'<div class="empty-hint">No simulations launched yet. Pick a scenario above to inject a correlated attack chain.</div>';
+}
+function launchAttack(key){
+  const s=SCENARIOS[key];
+  const chain=runScenario(key);
+  state.simLog.unshift({t:new Date(),icon:s.icon,txt:`${s.name} — ${chain.length} alerts injected (host ${chain[0].host}, src ${chain[0].srcIp})`});
+  if(state.simLog.length>60)state.simLog.length=60;
+  renderTop();renderNav();
+  const el=document.getElementById('simLog'); if(el) el.innerHTML=renderSimLog();
+}
+
+/* ============================================================
+   SECURITY METRICS & SLA DASHBOARD
+   ============================================================ */
+function viewMetrics(){
+  const m=state.metrics;
+  const mttd=m.mttdN?(m.mttdSum/m.mttdN):0;
+  const mttr=m.mttrN?(m.mttrSum/m.mttrN):0;
+  const total=state.alerts.length;
+  const fpRate=total?(m.fp/total*100):0;
+  const escRate=total?(m.escalated/total*100):0;
+  const closed=state.alerts.filter(a=>a.status==='Closed').length;
+  const slaMet=Math.max(0,Math.min(100, 100 - fpRate*0.4 - (mttr>20?(mttr-20)*1.5:0))).toFixed(0);
+  document.getElementById('main').innerHTML=`
+    <div class="view-head"><div><div class="crumb">Platform · Performance</div><h1>📊 Security Metrics & SLA</h1>
+      <div class="sub">Operational KPIs — detection & response timing, SLA compliance, and analyst performance</div></div></div>
+    <div class="grid kpi-row mb">
+      ${kpi('MTTD',mttd.toFixed(1)+'m',mttd<5?'within SLA (5m)':'over target',mttd<5?'up':'down','◷')}
+      ${kpi('MTTR',mttr?mttr.toFixed(1)+'m':'—',mttr&&mttr<20?'within SLA (20m)':'review',mttr&&mttr<20?'up':'down','⏱')}
+      ${kpi('SLA Compliance',slaMet+'%',slaMet>=90?'healthy':'attention',slaMet>=90?'up':'down','✓')}
+      ${kpi('False Positive Rate',fpRate.toFixed(1)+'%',fpRate<25?'tuned':'noisy',fpRate<25?'up':'down','◌')}
+      ${kpi('Escalation Rate',escRate.toFixed(1)+'%',m.escalated+' to L2/L3','','⬆')}
+      ${kpi('Incidents Closed',closed,m.contained+' contained','up','◎')}
+    </div>
+    <div class="grid mb" style="grid-template-columns:1fr 1fr">
+      <div class="card glow"><h3>⏱ Response Timing by Severity</h3><div class="ch-sub">avg minutes — detect vs respond</div><div class="chart-h"><canvas id="cTiming"></canvas></div></div>
+      <div class="card glow"><h3>◎ Incident Lifecycle Funnel</h3><div class="ch-sub">alerts progressing through the 10-stage workflow</div><div class="chart-h"><canvas id="cFunnel"></canvas></div></div>
+    </div>
+    <div class="grid mb" style="grid-template-columns:1fr 1fr">
+      <div class="card"><h3>▥ Alerts by Category</h3><div class="ch-sub">threat-type distribution</div><div class="chart-h sm"><canvas id="cCat"></canvas></div></div>
+      <div class="card"><h3>👥 Analyst Workload</h3><div class="ch-sub">alerts handled vs closed</div><div class="chart-h sm"><canvas id="cAnalyst"></canvas></div></div>
+    </div>
+    <div class="card"><h3>👥 Analyst Performance Tracking</h3><div class="ch-sub">per-analyst throughput & efficiency this shift</div>
+      <div class="tbl-wrap"><table><thead><tr><th>Analyst</th><th>Tier</th><th>Handled</th><th>Closed</th><th>Avg Handle Time</th><th>Efficiency</th></tr></thead><tbody>
+      ${state.analysts.map(an=>{const eff=Math.min(100,Math.round(an.closed/Math.max(1,an.handled)*100));return `<tr>
+        <td>${an.name}</td><td><span class="tag">${an.role}</span></td><td class="mono">${an.handled}</td><td class="mono">${an.closed}</td><td class="mono">${an.avgMin}m</td>
+        <td><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:6px;background:var(--line2);border-radius:3px;overflow:hidden"><div style="width:${eff}%;height:100%;background:${eff>70?'var(--green)':eff>45?'var(--amber)':'var(--high)'}"></div></div><span class="mono" style="font-size:11px">${eff}%</span></div></td></tr>`;}).join('')}
+      </tbody></table></div></div>`;
+  buildMetricCharts();
+}
+function timingBySeverity(){
+  // deterministic plausible spread anchored on observed averages
+  const base=state.metrics.mttrN?(state.metrics.mttrSum/state.metrics.mttrN):14;
+  const dtct=state.metrics.mttdN?(state.metrics.mttdSum/state.metrics.mttdN):4;
+  return {labels:['Critical','High','Medium','Low'],
+    detect:[dtct*0.6,dtct*0.9,dtct*1.3,dtct*1.8].map(x=>+x.toFixed(1)),
+    respond:[base*0.7,base*1.0,base*1.5,base*2.1].map(x=>+x.toFixed(1))};
+}
+function funnelCounts(){
+  const labels=['Generated','L1 Triage','Ticketed','L2 Invest','Validated','L3 Hunt','Contained','Eradicated','Recovered','Closed'];
+  const counts=labels.map((_,i)=>state.alerts.filter(a=>a.stage>=i).length);
+  return {labels,counts};
+}
+function categoryCounts(){const c={};state.alerts.forEach(a=>c[a.cat]=(c[a.cat]||0)+1);
+  const e=Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,8);return {labels:e.map(x=>x[0]),data:e.map(x=>x[1])};}
+function buildMetricCharts(){
+  const t=timingBySeverity();
+  charts.timing=new Chart(document.getElementById('cTiming'),{type:'bar',
+    data:{labels:t.labels,datasets:[
+      {label:'MTTD',data:t.detect,backgroundColor:'#22d3ee',borderRadius:4},
+      {label:'MTTR',data:t.respond,backgroundColor:'#ff8a3d',borderRadius:4}]},
+    options:{...barOpts(),plugins:{legend:{display:true,labels:{color:'#cfe0f5',font:{size:11},boxWidth:12}}}}});
+  const f=funnelCounts();
+  charts.funnel=new Chart(document.getElementById('cFunnel'),{type:'bar',
+    data:{labels:f.labels,datasets:[{data:f.counts,backgroundColor:'#34e0a1',borderRadius:4}]},
+    options:barOpts(true)});
+  const cat=categoryCounts();
+  charts.cat=new Chart(document.getElementById('cCat'),{type:'doughnut',
+    data:{labels:cat.labels,datasets:[{data:cat.data,backgroundColor:['#ff4d6d','#ff8a3d','#f5b544','#3da8ff','#22d3ee','#34e0a1','#c792ea','#7f93b3'],borderColor:'#0b1120',borderWidth:3}]},
+    options:doughOpts()});
+  charts.analyst=new Chart(document.getElementById('cAnalyst'),{type:'bar',
+    data:{labels:state.analysts.map(a=>a.name.split(' ')[0]+' '+a.name.split(' ')[1][0]),datasets:[
+      {label:'Handled',data:state.analysts.map(a=>a.handled),backgroundColor:'#3da8ff',borderRadius:4},
+      {label:'Closed',data:state.analysts.map(a=>a.closed),backgroundColor:'#34e0a1',borderRadius:4}]},
+    options:{...barOpts(),plugins:{legend:{display:true,labels:{color:'#cfe0f5',font:{size:11},boxWidth:12}}}}});
+}
+function updateMetricCharts(){
+  if(charts.funnel){const f=funnelCounts();charts.funnel.data.datasets[0].data=f.counts;charts.funnel.update('none');}
+  if(charts.cat){const c=categoryCounts();charts.cat.data.labels=c.labels;charts.cat.data.datasets[0].data=c.data;charts.cat.update('none');}
+  if(charts.timing){const t=timingBySeverity();charts.timing.data.datasets[0].data=t.detect;charts.timing.data.datasets[1].data=t.respond;charts.timing.update('none');}
+}
+
+/* ============================================================
+   REPORTS MODULE
+   ============================================================ */
+const REPORTS=[
+  {id:'daily',icon:'📅',name:'Daily SOC Report',desc:'Shift summary of alert volume, severity mix, and outstanding queue.'},
+  {id:'incident',icon:'🚨',name:'Incident Report',desc:'Detailed write-up of a contained/closed incident with IOCs and ATT&CK.'},
+  {id:'exec',icon:'📈',name:'Executive Summary',desc:'High-level risk posture and KPIs for leadership.'},
+  {id:'intel',icon:'🌐',name:'Threat Intelligence Report',desc:'Aggregated malicious indicators enriched with threat intel.'},
+  {id:'invest',icon:'🔬',name:'Investigation Report',desc:'L2/L3 case findings, timeline, and recommended actions.'}];
+function viewReports(){
+  document.getElementById('main').innerHTML=`
+    <div class="view-head"><div><div class="crumb">Platform · Reporting</div><h1>📄 Reports</h1>
+      <div class="sub">Generate professional SOC reports from live session data</div></div></div>
+    <div class="grid" style="grid-template-columns:repeat(3,1fr);gap:14px">
+      ${REPORTS.map(r=>`<div class="atk-card" style="border-color:var(--line2)">
+        <div class="atk-ic">${r.icon}</div><h4>${r.name}</h4><p>${r.desc}</p>
+        <button class="btn primary" style="width:100%" onclick="genReport('${r.id}')">▸ Generate</button></div>`).join('')}
+    </div>`;
+}
+function rptHead(title,sub){return `<div class="section-divider">${sub}</div><div class="note-item" style="background:var(--bg)">${title}</div>`;}
+function genReport(id,anchorId){
+  const m=state.metrics, now=new Date();
+  const mttd=m.mttdN?(m.mttdSum/m.mttdN).toFixed(1):'—', mttr=m.mttrN?(m.mttrSum/m.mttrN).toFixed(1):'—';
+  const sv=severityCounts(), total=state.alerts.length;
+  let title='', body='';
+  if(id==='daily'){
+    title='Daily SOC Report';
+    body=`<div class="kv mb"><div class="k">Report Date</div><div class="v">${fmtDate(now)}</div>
+      <div class="k">Shift Lead</div><div class="v">${state.user.name} (${state.user.role})</div>
+      <div class="k">Alerts Ingested</div><div class="v">${total}</div>
+      <div class="k">Open Queue</div><div class="v">${state.alerts.filter(a=>['New','Acknowledged','InProgress'].includes(a.status)).length}</div></div>
+      <div class="section-divider">Severity Breakdown</div>
+      <div class="note-item">Critical: ${sv.Critical} · High: ${sv.High} · Medium: ${sv.Medium} · Low: ${sv.Low}</div>
+      <div class="section-divider">Operational Metrics</div>
+      <div class="note-item">MTTD ${mttd}m · MTTR ${mttr}m · False Positives ${m.fp} · Escalated ${m.escalated} · Contained ${m.contained}</div>
+      <div class="section-divider">Outstanding Items</div>
+      <div class="note-item">${state.cases.filter(c=>c.status!=='Closed').length} open case(s); ${sv.Critical} critical alert(s) require continued monitoring into the next shift.</div>`;
+  } else if(id==='incident'){
+    const inc=(anchorId&&state.alerts.find(a=>a.id===anchorId))||state.alerts.find(a=>['Contained','Closed'].includes(a.status))||state.alerts.find(a=>a.sev==='Critical')||state.alerts[0];
+    const intel=intelFor(inc.srcIp);
+    title='Incident Report — '+inc.id;
+    body=`<div class="kv mb"><div class="k">Incident ID</div><div class="v">${inc.id}</div>
+      <div class="k">Classification</div><div class="v">${inc.cat}</div><div class="k">Severity</div><div class="v">${inc.sev}</div>
+      <div class="k">Status</div><div class="v">${inc.status}</div><div class="k">Affected Host</div><div class="v">${inc.host}</div>
+      <div class="k">Account</div><div class="v">${inc.user}</div><div class="k">Detected By</div><div class="v">${inc.source}</div></div>
+      <div class="section-divider">Indicators of Compromise</div>
+      <div class="note-item">IP ${inc.srcIp} (${intel.verdict}, ${intel.country}, ${intel.family}) · Domain ${inc.domain||'n/a'} · Hash ${inc.hash?inc.hash.slice(0,24)+'…':'n/a'}</div>
+      <div class="section-divider">MITRE ATT&CK</div>
+      <div class="note-item">${inc.mitre.map(x=>x+' — '+mitreName(x)).join(' · ')||'n/a'}</div>
+      <div class="section-divider">Response Actions</div>
+      <div class="note-item">${(state.respLog||[]).filter(r=>r.txt.includes(inc.id)).map(r=>r.txt).join('<br>')||'Containment pending — see Response view.'}</div>`;
+  } else if(id==='exec'){
+    const slaMet=Math.max(0,Math.min(100,100-(total?m.fp/total*100:0)*0.4)).toFixed(0);
+    title='Executive Summary';
+    body=`<div class="note-item" style="background:var(--bg)">Security posture summary for leadership · ${fmtDate(now)}</div>
+      <div class="section-divider">Posture at a Glance</div>
+      <div class="kv mb"><div class="k">Threat Level</div><div class="v">${sv.Critical>3?'ELEVATED':sv.Critical>0?'GUARDED':'NORMAL'}</div>
+      <div class="k">Alerts Handled</div><div class="v">${total}</div><div class="k">Incidents Closed</div><div class="v">${state.alerts.filter(a=>a.status==='Closed').length}</div>
+      <div class="k">SLA Compliance</div><div class="v">${slaMet}%</div><div class="k">MTTD / MTTR</div><div class="v">${mttd}m / ${mttr}m</div></div>
+      <div class="section-divider">Key Message</div>
+      <div class="note-item">The SOC processed ${total} alerts this period with ${m.escalated} escalations and ${m.contained} containment actions. ${sv.Critical>0?sv.Critical+' critical threat(s) are under active management.':'No critical threats are currently outstanding.'} Detection and response times remain ${(mttr!=='—'&&+mttr<20)?'within':'near'} defined SLA targets.</div>
+      <div class="section-divider">Recommended Investments</div>
+      <div class="note-item">${pick(['Expand EDR coverage to remaining endpoints.','Enforce phishing-resistant MFA org-wide.','Increase L2 staffing to reduce escalation backlog.','Mature automated containment playbooks.'])}</div>`;
+  } else if(id==='intel'){
+    const ips={},doms={};
+    state.alerts.forEach(a=>{(a.iocs.ip||[]).forEach(i=>ips[i]=(ips[i]||0)+1);(a.iocs.domain||[]).forEach(d=>doms[d]=(doms[d]||0)+1);});
+    const topIp=Object.entries(ips).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    const topDom=Object.entries(doms).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    title='Threat Intelligence Report';
+    body=`<div class="note-item" style="background:var(--bg)">Aggregated indicator analysis · ${fmtDate(now)}</div>
+      <div class="section-divider">Top Malicious IPs</div>
+      <div class="note-item">${topIp.map(([ip,n])=>{const it=intelFor(ip);return `${ip} — ${it.verdict} (${it.country}, ${it.family}) · ${n} hits`;}).join('<br>')||'No IP indicators observed.'}</div>
+      <div class="section-divider">Top Suspicious Domains</div>
+      <div class="note-item">${topDom.map(([d,n])=>{const it=intelFor(d);return `${d} — ${it.verdict} · risk ${it.score}/100 · ${n} hits`;}).join('<br>')||'No domain indicators observed.'}</div>
+      <div class="section-divider">Assessment</div>
+      <div class="note-item">Indicators correlate with ${pick(['commodity malware delivery','targeted intrusion activity','opportunistic scanning and brute force','C2 infrastructure reuse'])}. Recommend blocklisting confirmed-malicious indicators and hunting for related artifacts.</div>`;
+  } else {
+    const c=state.cases[0];
+    title='Investigation Report'+(c?' — '+c.id:'');
+    if(!c){ body='<div class="empty-hint">No open cases to report on. Escalate an investigation from the L2 workspace first.</div>'; }
+    else { const a=state.alerts.find(x=>x.id===c.anchor)||state.alerts[0];
+      body=`<div class="kv mb"><div class="k">Case</div><div class="v">${c.id}</div><div class="k">Title</div><div class="v">${c.title}</div>
+        <div class="k">Owner</div><div class="v">${c.owner}</div><div class="k">Severity</div><div class="v">${c.sev}</div>
+        <div class="k">Stage</div><div class="v">${LIFECYCLE[c.stage]||'In Progress'}</div><div class="k">Anchor Alert</div><div class="v">${c.anchor}</div></div>
+        <div class="section-divider">Findings</div>
+        <div class="note-item">${(a.notes||[]).map(n=>'• '+n.txt).join('<br>')||'Investigation in progress; correlated '+relatedAlerts(a).length+' related event(s) sharing IOCs with the anchor alert.'}</div>
+        <div class="section-divider">ATT&CK Techniques</div>
+        <div class="note-item">${(c.mitre||[]).map(x=>x+' — '+mitreName(x)).join(' · ')||'n/a'}</div>
+        <div class="section-divider">Recommended Actions</div>
+        <div class="note-item">${pick(['Isolate affected host and reset credentials.','Block confirmed-malicious IOCs at the perimeter.','Hunt for lateral movement across peer hosts.','Escalate to incident response for containment.'])}</div>`;
+    }
+  }
+  // stash the current report context for the export helpers
+  state._lastReport={id,title,anchorId:anchorId||null};
+  openModal(title,`<div style="max-height:55vh;overflow:auto" id="reportBody">${body}</div>
+    <div class="btn-row mt">
+      <button class="btn primary" onclick="exportReportPDF()">⤓ Export PDF</button>
+      <button class="btn" onclick="exportAlertsCSV()">⤓ Alerts CSV</button>
+      <button class="btn" onclick="exportExecSummary()">⤓ Executive Summary (.txt)</button>
+      <button class="btn" onclick="closeModal()">Close</button>
+    </div>`);
+}
+
+/* ============================================================
+   REPORT EXPORT — PDF / CSV / Executive Summary  (real downloads)
+   ============================================================ */
+function download(filename,text,mime){
+  const blob=new Blob([text],{type:mime||'text/plain'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();
+  setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},100);
+}
+function plainFromHTML(html){
+  const d=document.createElement('div');d.innerHTML=html.replace(/<\/div>/gi,'\n').replace(/<br\s*\/?>(?=)/gi,'\n');
+  return (d.textContent||'').replace(/\n{3,}/g,'\n\n').split('\n').map(l=>l.trim()).filter(Boolean).join('\n');
+}
+function exportReportPDF(){
+  const r=state._lastReport||{title:'SOC Report',id:'daily'};
+  const bodyEl=document.getElementById('reportBody');
+  const text=bodyEl?plainFromHTML(bodyEl.innerHTML):'';
+  const jspdf=window.jspdf&&window.jspdf.jsPDF;
+  if(!jspdf){ // fallback: download as text if CDN blocked
+    download(r.title.replace(/[^\w]+/g,'_')+'.txt',`SOCVERSE — ${r.title}\nGenerated ${fmtDate(new Date())}\n\n`+text,'text/plain');
+    toast('warn','PDF LIB UNAVAILABLE','Exported as .txt instead (offline)');return;
+  }
+  const doc=new jspdf({unit:'pt',format:'a4'});
+  const W=doc.internal.pageSize.getWidth();
+  // header band
+  doc.setFillColor(7,11,20);doc.rect(0,0,W,70,'F');
+  doc.setTextColor(34,211,238);doc.setFont('helvetica','bold');doc.setFontSize(18);
+  doc.text('SOCVerse',40,34);
+  doc.setTextColor(230,238,250);doc.setFontSize(13);doc.text(r.title,40,54);
+  doc.setTextColor(120,140,170);doc.setFont('helvetica','normal');doc.setFontSize(9);
+  doc.text(`Generated ${fmtDate(new Date())}  ·  Analyst: ${state.user.name} (${state.user.role})`,40,66);
+  // body
+  doc.setTextColor(30,40,55);doc.setFontSize(10.5);
+  const lines=doc.splitTextToSize(text,W-80);
+  let y=92;const ph=doc.internal.pageSize.getHeight();
+  lines.forEach(ln=>{ if(y>ph-50){doc.addPage();y=50;} doc.text(ln,40,y);y+=15; });
+  doc.setTextColor(150,160,175);doc.setFontSize(8);
+  doc.text('SOCVerse — simulated SOC report for training/demonstration.',40,ph-24);
+  doc.save(r.title.replace(/[^\w]+/g,'_')+'.pdf');
+  toast('ok','PDF EXPORTED',r.title);
+}
+function exportAlertsCSV(){
+  const cols=['id','ts','source','cat','sev','status','host','user','srcIp','destIp','domain','scenario','mitre','stage'];
+  const head=cols.join(',');
+  const esc=v=>{v=(v==null?'':Array.isArray(v)?v.join('|'):String(v));return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  const rows=state.alerts.map(a=>cols.map(c=>esc(a[c])).join(','));
+  download('socverse_alerts_'+Date.now()+'.csv',[head,...rows].join('\n'),'text/csv');
+  toast('ok','CSV EXPORTED',`${state.alerts.length} alerts written`);
+}
+function exportExecSummary(){
+  const m=state.metrics,sv=severityCounts(),total=state.alerts.length;
+  const mttd=m.mttdN?(m.mttdSum/m.mttdN).toFixed(1):'—',mttr=m.mttrN?(m.mttrSum/m.mttrN).toFixed(1):'—';
+  const slaMet=Math.max(0,Math.min(100,100-(total?m.fp/total*100:0)*0.4)).toFixed(0);
+  const closed=state.alerts.filter(a=>a.status==='Closed').length;
+  const txt=
+`SOCVERSE — EXECUTIVE SUMMARY
+Generated: ${fmtDate(new Date())}
+Prepared by: ${state.user.name} (${state.user.role})
+============================================================
+
+THREAT LEVEL: ${sv.Critical>3?'ELEVATED':sv.Critical>0?'GUARDED':'NORMAL'}
+
+POSTURE AT A GLANCE
+  Alerts handled ............ ${total}
+  Critical active ........... ${sv.Critical}
+  Incidents closed .......... ${closed}
+  Open cases ................ ${state.cases.filter(c=>c.status!=='Closed').length}
+  SLA compliance ............ ${slaMet}%
+  MTTD / MTTR ............... ${mttd}m / ${mttr}m
+
+SEVERITY BREAKDOWN
+  Critical ${sv.Critical} · High ${sv.High} · Medium ${sv.Medium} · Low ${sv.Low}
+
+KEY MESSAGE
+  The SOC processed ${total} alerts this period with ${m.escalated} escalations
+  and ${m.contained} containment actions. ${sv.Critical>0?sv.Critical+' critical threat(s) are under active management.':'No critical threats are currently outstanding.'}
+  Detection and response times remain ${(mttr!=='—'&&+mttr<20)?'within':'near'} defined SLA targets.
+
+RECOMMENDED INVESTMENTS
+  - Expand EDR coverage to remaining endpoints
+  - Enforce phishing-resistant MFA org-wide
+  - Mature automated containment playbooks
+============================================================
+SOCVerse — simulated SOC report for training/demonstration.`;
+  download('socverse_executive_summary_'+Date.now()+'.txt',txt,'text/plain');
+  toast('ok','SUMMARY EXPORTED','Executive summary downloaded');
+}
+
+</script>
+</body>
+</html>
